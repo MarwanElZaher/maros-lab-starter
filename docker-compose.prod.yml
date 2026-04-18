@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  app:
+    image: ${GHCR_IMAGE}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - n8n_default
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.maros-lab-starter.rule=Host(`${APP_HOST}`)"
+      - traefik.http.routers.maros-lab-starter.entrypoints=web,websecure
+      - traefik.http.routers.maros-lab-starter.tls=true
+      - traefik.http.routers.maros-lab-starter.tls.certresolver=mytlschallenge
+      - traefik.http.services.maros-lab-starter.loadbalancer.server.port=3000
+      - traefik.docker.network=n8n_default
+
+networks:
+  n8n_default:
+    external: true

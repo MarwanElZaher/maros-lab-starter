@@ -5,32 +5,69 @@ on:
     branches: [main]
 
 jobs:
-  deploy:
-    name: Deploy to Vercel (production)
+  build:
+    name: Build & push image
     runs-on: ubuntu-latest
-    environment: production
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          node-version: 22
-          cache: npm
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
 
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
 
-      - name: Build project
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to production
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_DEPLOY_PAT }}
+          IMAGE_TAG: ${{ github.sha }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: marwanelzaher
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GHCR_TOKEN,IMAGE_TAG,GITHUB_ACTOR
+          script: |
+            set -euo pipefail
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+            cd /home/marwanelzaher/ai-company/maros-lab-starter
+            IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml config --quiet
+            IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml pull
+            IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker image prune -f
 
 # Required GitHub secrets:
-#   VERCEL_TOKEN       — from Vercel dashboard → Settings → Tokens
-#   VERCEL_ORG_ID      — from .vercel/project.json after `vercel link`
-#   VERCEL_PROJECT_ID  — from .vercel/project.json after `vercel link`
+#   VPS_SSH_KEY       — ED25519 private key for marwanelzaher@45.97.140.41
+#   VPS_HOST          — VPS IP or hostname (e.g. 45.97.140.41)
+#   GHCR_DEPLOY_PAT   — GitHub PAT with read:packages scope for VPS docker login
+#
+# One-time VPS bootstrap at /home/marwanelzaher/ai-company/maros-lab-starter/
+#   git clone <repo-url> /home/marwanelzaher/ai-company/maros-lab-starter
+#   cp .env.example .env && chmod 600 .env  # fill in all values
+#
+# Required .env vars on VPS (on top of .env.example app vars):
+#   GHCR_IMAGE=ghcr.io/<org>/<repo>   # lowercase — GHCR normalises automatically
+#   APP_HOST=<subdomain.yourdomain.com>
+#   NEXTAUTH_URL=https://<subdomain.yourdomain.com>

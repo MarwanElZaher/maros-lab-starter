@@ -2,8 +2,8 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
-  // Enable React strict mode for better development warnings
   reactStrictMode: true,
+  output: "standalone",
 };
 
 export default withSentryConfig(nextConfig, {
