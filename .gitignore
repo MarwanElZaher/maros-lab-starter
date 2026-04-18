@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+
+# Environment — never commit these
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# Prisma
+prisma/migrations/dev/
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
