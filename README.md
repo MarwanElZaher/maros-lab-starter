@@ -2,7 +2,7 @@
 
 A minimal, opinionated project skeleton for every client engagement. Fork this repo to start a new project in under 30 minutes.
 
-**Stack (per [ADR — Maro's LAB Default Delivery Stack](https://github.com/your-org/maros-lab-starter)):**
+**Stack (per [ADR — Maro's LAB Default Delivery Stack](https://github.com/MarwanElZaher/maros-lab-starter)):**
 
 | Layer | Choice |
 |---|---|
@@ -33,7 +33,7 @@ A minimal, opinionated project skeleton for every client engagement. Fork this r
 ### 1. Fork / clone this template
 
 ```bash
-gh repo create my-engagement --template maros-lab/starter --private --clone
+gh repo create my-engagement --template MarwanElZaher/maros-lab-starter --private --clone
 cd my-engagement
 ```
 
