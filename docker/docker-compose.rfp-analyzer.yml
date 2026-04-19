@@ -24,6 +24,9 @@ services:
       PORT: "3000"
       NODE_ENV: production
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      # Some @langchain/openai versions read OPENAI_API_KEY directly for the
+      # structured-output helper call; alias it to the OpenRouter key.
+      OPENAI_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4-5}
       RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL}
       RAGFLOW_API_KEY: ${RAGFLOW_API_KEY}
