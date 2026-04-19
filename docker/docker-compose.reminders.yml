@@ -1,0 +1,47 @@
+version: "3.9"
+
+# WhatsApp appointment-reminder stack
+# Deploy on VPS alongside the main n8n stack.
+# Requires: n8n_default network already exists (created by the n8n docker-compose).
+#
+# Usage:
+#   cp docker/reminders.env.example .env.reminders
+#   # fill in WAHA_API_KEY and CF_TUNNEL_TOKEN_REMINDERS
+#   docker compose -f docker/docker-compose.reminders.yml --env-file .env.reminders up -d
+
+services:
+  waha:
+    image: devlikeapro/waha:latest
+    restart: unless-stopped
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: WEBJS
+      # Set a strong secret; n8n will send this as X-Api-Key
+      WHATSAPP_API_KEY: ${WAHA_API_KEY}
+      # Keep Chrome footprint low inside Docker
+      WHATSAPP_CHROMIUM_ARGS: "--no-sandbox --disable-dev-shm-usage"
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/media
+    networks:
+      - n8n_default
+    # Not exposed on host — only reachable inside the Docker network by n8n
+
+  cloudflared-reminders:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    # The tunnel routes reminders.marwanelzaher.info → http://waha:3000
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN_REMINDERS}
+    networks:
+      - n8n_default
+    depends_on:
+      - waha
+
+volumes:
+  waha_sessions:
+  waha_media:
+
+networks:
+  n8n_default:
+    external: true

@@ -1,0 +1,303 @@
+{
+  "name": "WhatsApp Appointment Reminders",
+  "nodes": [
+    {
+      "id": "schedule-trigger",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "get-pending-reminders",
+      "name": "Get Pending Reminders",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id,\n  a.client_name,\n  a.client_phone,\n  a.scheduled_at,\n  '24h' AS reminder_type\nFROM appointments a\nWHERE a.scheduled_at BETWEEN NOW() + INTERVAL '23 hours 30 minutes'\n                         AND NOW() + INTERVAL '24 hours 30 minutes'\n  AND NOT EXISTS (\n    SELECT 1 FROM reminder_log rl\n    WHERE rl.appointment_id = a.id\n      AND rl.reminder_type = '24h'\n  )\nUNION ALL\nSELECT\n  a.id,\n  a.client_name,\n  a.client_phone,\n  a.scheduled_at,\n  '1h' AS reminder_type\nFROM appointments a\nWHERE a.scheduled_at BETWEEN NOW() + INTERVAL '30 minutes'\n                         AND NOW() + INTERVAL '90 minutes'\n  AND NOT EXISTS (\n    SELECT 1 FROM reminder_log rl\n    WHERE rl.appointment_id = a.id\n      AND rl.reminder_type = '1h'\n  );",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_YOUR_POSTGRES_CRED_ID",
+          "name": "Postgres — Reminders DB"
+        }
+      }
+    },
+    {
+      "id": "has-appointments",
+      "name": "Has Appointments?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "build-message",
+      "name": "Build Reminder Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [900, 200],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "appt-id",
+              "name": "appointmentId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "phone",
+              "name": "chatId",
+              "value": "={{ $json.client_phone }}@c.us",
+              "type": "string"
+            },
+            {
+              "id": "reminder-type",
+              "name": "reminderType",
+              "value": "={{ $json.reminder_type }}",
+              "type": "string"
+            },
+            {
+              "id": "message-text",
+              "name": "messageText",
+              "value": "={{ $json.reminder_type === '24h'\n  ? `Hi ${$json.client_name}! 👋 This is a reminder that you have an appointment tomorrow at ${new Date($json.scheduled_at).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', timeZone:'Africa/Cairo'})}. Reply CONFIRM to confirm or CANCEL to cancel. See you soon!`\n  : `Hi ${$json.client_name}! ⏰ Your appointment is in 1 hour (${new Date($json.scheduled_at).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', timeZone:'Africa/Cairo'})}). We look forward to seeing you!` }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "send-whatsapp",
+      "name": "Send via WAHA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://waha:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.WAHA_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chatId: $json.chatId, text: $json.messageText, session: 'default' }) }}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "send-success",
+      "name": "Send Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 200],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "status-check",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 400,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1560, 100],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO reminder_log (appointment_id, reminder_type, status)\nVALUES ('{{ $('Build Reminder Message').item.json.appointmentId }}', '{{ $('Build Reminder Message').item.json.reminderType }}', 'sent')\nON CONFLICT (appointment_id, reminder_type) DO UPDATE SET status = 'sent', error_message = NULL, sent_at = NOW();",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_YOUR_POSTGRES_CRED_ID",
+          "name": "Postgres — Reminders DB"
+        }
+      }
+    },
+    {
+      "id": "log-failure",
+      "name": "Log Failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1560, 320],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO reminder_log (appointment_id, reminder_type, status, error_message)\nVALUES ('{{ $('Build Reminder Message').item.json.appointmentId }}', '{{ $('Build Reminder Message').item.json.reminderType }}', 'failed', '{{ $json.error ?? $json.message ?? \"HTTP \" + $json.statusCode }}')\nON CONFLICT (appointment_id, reminder_type) DO UPDATE SET status = 'failed', error_message = EXCLUDED.error_message, sent_at = NOW();",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_YOUR_POSTGRES_CRED_ID",
+          "name": "Postgres — Reminders DB"
+        }
+      }
+    },
+    {
+      "id": "alert-owner",
+      "name": "Alert Business Owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 320],
+      "parameters": {
+        "method": "POST",
+        "url": "http://waha:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.WAHA_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chatId: $env.OWNER_WHATSAPP_NUMBER + '@c.us', text: `⚠️ Reminder FAILED\\nAppointment: ${$('Build Reminder Message').item.json.appointmentId}\\nType: ${$('Build Reminder Message').item.json.reminderType}\\nPhone: ${$('Build Reminder Message').item.json.chatId}\\nError: ${$json.error ?? $json.message ?? 'HTTP ' + $json.statusCode}`, session: 'default' }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "no-op-skip",
+      "name": "No Appointments — Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [900, 440],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [{ "node": "Get Pending Reminders", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Pending Reminders": {
+      "main": [
+        [{ "node": "Has Appointments?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Appointments?": {
+      "main": [
+        [{ "node": "Build Reminder Message", "type": "main", "index": 0 }],
+        [{ "node": "No Appointments — Skip", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Reminder Message": {
+      "main": [
+        [{ "node": "Send via WAHA", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send via WAHA": {
+      "main": [
+        [{ "node": "Send Succeeded?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Succeeded?": {
+      "main": [
+        [{ "node": "Log Success", "type": "main", "index": 0 }],
+        [{ "node": "Log Failure", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Failure": {
+      "main": [
+        [{ "node": "Alert Business Owner", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "versionId": "1",
+  "triggerCount": 0,
+  "tags": []
+}
