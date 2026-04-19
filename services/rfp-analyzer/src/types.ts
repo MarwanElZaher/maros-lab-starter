@@ -24,8 +24,8 @@ export type Recommendation = z.infer<typeof RecommendationSchema>;
 export const RequirementsSchema = z.object({
   requirements: z.array(z.string()),
   buyerName: z.string(),
-  deadline: z.string().optional(),
-  budget: z.string().optional(),
+  deadline: z.string().nullable(),
+  budget: z.string().nullable(),
   summary: z.string(),
 });
 
