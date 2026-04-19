@@ -1,0 +1,44 @@
+version: "3.9"
+
+# RFP Analysis LangGraph service — ACME presales pipeline (MAR-16/MAR-18)
+#
+# Usage:
+#   docker compose -f docker/docker-compose.rfp-analyzer.yml --env-file .env.rfp-analyzer up -d --build
+#
+# Required env vars (copy from .env.rfp-analyzer.example):
+#   OPENROUTER_API_KEY, RAGFLOW_API_KEY, RAGFLOW_BASE_URL,
+#   RAGFLOW_DATASET_PRODUCTS, RAGFLOW_DATASET_PRICING, RAGFLOW_DATASET_PAST_BIDS
+#
+# Internal access: http://rfp-analyzer:3000 (docker DNS, no auth)
+# Public access: not exposed — n8n routes through internally.
+
+services:
+  rfp-analyzer:
+    build:
+      context: ../services/rfp-analyzer
+      dockerfile: Dockerfile
+    image: rfp-analyzer:latest
+    restart: unless-stopped
+    mem_limit: 1g
+    environment:
+      PORT: "3000"
+      NODE_ENV: production
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4-5}
+      RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL}
+      RAGFLOW_API_KEY: ${RAGFLOW_API_KEY}
+      # Set these once MAR-17 (Integrator) posts the dataset IDs
+      RAGFLOW_DATASET_PRODUCTS: ${RAGFLOW_DATASET_PRODUCTS:-}
+      RAGFLOW_DATASET_PRICING: ${RAGFLOW_DATASET_PRICING:-}
+      RAGFLOW_DATASET_PAST_BIDS: ${RAGFLOW_DATASET_PAST_BIDS:-}
+    networks:
+      - n8n_default
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  n8n_default:
+    external: true

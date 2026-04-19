@@ -1,0 +1,129 @@
+{
+  "name": "RFP Analysis Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rfp-analyze",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c1a2b3d4-0001-4000-8000-000000000001",
+      "name": "Webhook — Receive RFP URL",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "rfp-analyze"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rfp-analyzer:3000/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{ JSON.stringify({ pdf_url: $json.body.pdf_url }) }}",
+        "options": {
+          "timeout": 360000,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "c1a2b3d4-0002-4000-8000-000000000002",
+      "name": "LangGraph — Analyze RFP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "c1a2b3d4-0003-4000-8000-000000000003",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.message || 'Analysis failed' }) }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "c1a2b3d4-0004-4000-8000-000000000004",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 440]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-decision",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1a2b3d4-0005-4000-8000-000000000005",
+      "name": "Analysis Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [570, 300]
+    }
+  ],
+  "connections": {
+    "Webhook — Receive RFP URL": {
+      "main": [
+        [{ "node": "LangGraph — Analyze RFP", "type": "main", "index": 0 }]
+      ]
+    },
+    "LangGraph — Analyze RFP": {
+      "main": [
+        [{ "node": "Analysis Succeeded?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Analysis Succeeded?": {
+      "main": [
+        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "description": "POST { pdf_url } → LangGraph rfp-analyzer → { decision, confidence, justifications, redFlags, similarBids }. Webhook path: /webhook/rfp-analyze. Timeout: 6 min (LangGraph may call OpenRouter + RAGflow multiple times)."
+  },
+  "pinData": {},
+  "versionId": "1"
+}

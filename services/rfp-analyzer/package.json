@@ -1,0 +1,24 @@
+{
+  "name": "rfp-analyzer",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts"
+  },
+  "dependencies": {
+    "@langchain/langgraph": "^1.2.9",
+    "@langchain/openai": "^1.4.4",
+    "axios": "^1.7.9",
+    "fastify": "^4.28.1",
+    "pdf-parse": "^1.1.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.7",
+    "@types/pdf-parse": "^1.1.4",
+    "typescript": "^5.6.3"
+  }
+}
