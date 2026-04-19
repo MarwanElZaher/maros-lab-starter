@@ -6,7 +6,7 @@ import type { NextAuthOptions } from "next-auth";
 // Add OAuth providers here — see https://next-auth.js.org/providers/
 // Example: import GitHubProvider from "next-auth/providers/github"
 
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   providers: [
     // GitHubProvider({
@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     session({ session, user }) {
-      if (session.user) session.user.id = user.id;
+      if (session.user) (session.user as { id?: string }).id = user.id;
       return session;
     },
   },

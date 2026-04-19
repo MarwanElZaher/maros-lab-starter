@@ -19,7 +19,6 @@ export function cachedSystem(text: string): Anthropic.MessageParam["content"] {
     {
       type: "text",
       text,
-      // @ts-expect-error cache_control is valid in the API but not yet in all SDK type definitions
       cache_control: { type: "ephemeral" },
     },
   ];

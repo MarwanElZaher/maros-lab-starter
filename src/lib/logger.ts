@@ -1,6 +1,6 @@
-import { Logger } from "@axiomhq/nextjs";
+import { Logger, ConsoleTransport } from "@axiomhq/logging";
 
-export const logger = new Logger();
+export const logger = new Logger({ transports: [new ConsoleTransport()] });
 
 // Usage: logger.info("event.name", { key: "value" })
-// Axiom dataset is set via NEXT_PUBLIC_AXIOM_DATASET + AXIOM_TOKEN env vars
+// To enable Axiom ingestion: wire up AxiomJSTransport with @axiomhq/js once installed.
