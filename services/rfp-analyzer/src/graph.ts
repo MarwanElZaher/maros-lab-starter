@@ -71,7 +71,7 @@ async function extractRequirements(state: State): Promise<Partial<State>> {
     clearTimeout(timeout);
   }
 
-  const structured = llm.withStructuredOutput(RequirementsSchema, { method: "functionCalling" });
+  const structured = llm.withStructuredOutput(RequirementsSchema, { method: 'functionCalling' });
   const requirements = await structured.invoke([
     {
       role: 'system',
@@ -100,7 +100,7 @@ async function queryKnowledgeBases(state: State): Promise<Partial<State>> {
 }
 
 async function detectBlockers(state: State): Promise<Partial<State>> {
-  const structured = llm.withStructuredOutput(BlockerAnalysisSchema, { method: "functionCalling" });
+  const structured = llm.withStructuredOutput(BlockerAnalysisSchema, { method: 'functionCalling' });
   const blockerAnalysis = await structured.invoke([
     {
       role: 'system',
@@ -127,7 +127,7 @@ async function retrieveSimilarBids(state: State): Promise<Partial<State>> {
 }
 
 async function synthesiseRecommendation(state: State): Promise<Partial<State>> {
-  const structured = llm.withStructuredOutput(RecommendationSchema, { method: "functionCalling" });
+  const structured = llm.withStructuredOutput(RecommendationSchema, { method: 'functionCalling' });
   const recommendation = await structured.invoke([
     {
       role: 'system',
