@@ -39,8 +39,13 @@ AUTH=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H "Content-Type: application/j
 log() { echo "[cf-rfp-setup] $*"; }
 
 # ── 1. Add DNS route for the hostname to the shared tunnel ────────────────────
-log "Adding DNS route ${HOSTNAME} → tunnel ${TUNNEL_ID}"
-cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}"
+# Set SKIP_DNS=1 if the DNS CNAME + tunnel ingress are already live.
+if [[ "${SKIP_DNS:-0}" == "1" ]]; then
+  log "SKIP_DNS=1 — skipping tunnel route dns (already configured)"
+else
+  log "Adding DNS route ${HOSTNAME} → tunnel ${TUNNEL_ID}"
+  cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}"
+fi
 
 # ── 2. Create the CF Access application ───────────────────────────────────────
 log "Creating CF Access application for ${HOSTNAME}"
