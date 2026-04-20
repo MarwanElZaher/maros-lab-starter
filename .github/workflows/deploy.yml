@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
 
+# VPS deploy pattern: PULL-LOOP (no inbound SSH from GH Actions).
+# This workflow builds and pushes the image to GHCR.
+# The VPS picks up the new image on the next maroslab-pull-loop.timer tick
+# (every 2 minutes via systemd/maroslab-pull-loop.timer).
+# Install the timer once with: sudo bash scripts/install-pull-loop.sh
+
 jobs:
   build:
     name: Build & push image
@@ -31,46 +37,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:main
             ${{ env.IMAGE }}:${{ github.sha }}
-
-  deploy:
-    name: Deploy to VPS
-    needs: build
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        env:
-          GHCR_TOKEN: ${{ secrets.GHCR_DEPLOY_PAT }}
-          IMAGE_TAG: ${{ github.sha }}
-          GITHUB_ACTOR: ${{ github.actor }}
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: marwanelzaher
-          key: ${{ secrets.VPS_SSH_KEY }}
-          envs: GHCR_TOKEN,IMAGE_TAG,GITHUB_ACTOR
-          script: |
-            set -euo pipefail
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
-            cd /home/marwanelzaher/ai-company/maros-lab-starter
-            IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml config --quiet
-            IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml pull
-            IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml up -d --remove-orphans
-            docker image prune -f
-
-# Required GitHub secrets:
-#   VPS_SSH_KEY       — ED25519 private key for marwanelzaher@45.97.140.41
-#   VPS_HOST          — VPS IP or hostname (e.g. 45.97.140.41)
-#   GHCR_DEPLOY_PAT   — GitHub PAT with read:packages scope for VPS docker login
-#
-# One-time VPS bootstrap at /home/marwanelzaher/ai-company/maros-lab-starter/
-#   git clone <repo-url> /home/marwanelzaher/ai-company/maros-lab-starter
-#   cp .env.example .env && chmod 600 .env  # fill in all values
-#
-# Required .env vars on VPS (on top of .env.example app vars):
-#   GHCR_IMAGE=ghcr.io/<org>/<repo>   # lowercase — GHCR normalises automatically
-#   APP_HOST=<subdomain.yourdomain.com>
-#   NEXTAUTH_URL=https://<subdomain.yourdomain.com>

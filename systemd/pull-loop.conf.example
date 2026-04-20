@@ -1,0 +1,9 @@
+# Maro's LAB pull-loop service registry
+# One line per service: IMAGE|COMPOSE_FILE|SERVICE_NAME
+# Blank lines and lines starting with # are ignored.
+# To add a new service, append a line — no script changes required.
+#
+# Copy this file to /etc/maroslab/pull-loop.conf on the VPS and edit it.
+
+# Main Next.js / CopilotKit UI (slice 2)
+ghcr.io/marwanelzaher/maros-lab-starter:main|/home/marwanelzaher/ai-company/maros-lab-starter/docker-compose.prod.yml|app

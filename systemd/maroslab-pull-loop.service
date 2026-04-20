@@ -1,0 +1,13 @@
+[Unit]
+Description=Maro's LAB VPS pull-loop reconciler
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=marwanelzaher
+EnvironmentFile=-/etc/maroslab/pull-loop.env
+ExecStart=/home/marwanelzaher/ai-company/maros-lab-starter/scripts/pull-loop.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=maroslab-pull-loop
