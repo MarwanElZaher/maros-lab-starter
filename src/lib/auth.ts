@@ -35,9 +35,9 @@ export async function getRequestUser(req: NextRequest): Promise<RequestUser | nu
  */
 export function withRole(
   minimumRole: UserRole,
-  handler: (req: NextRequest, user: RequestUser) => Promise<NextResponse>
+  handler: (req: NextRequest, user: RequestUser) => Promise<NextResponse | Response>
 ) {
-  return async (req: NextRequest): Promise<NextResponse> => {
+  return async (req: NextRequest): Promise<NextResponse | Response> => {
     const user = await getRequestUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (ROLE_RANK[user.role] < ROLE_RANK[minimumRole]) {

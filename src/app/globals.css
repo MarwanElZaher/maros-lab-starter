@@ -1,4 +1,5 @@
-/* Minimal reset — add Tailwind or your design system here */
+@import "tailwindcss";
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
