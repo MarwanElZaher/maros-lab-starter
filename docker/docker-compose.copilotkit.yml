@@ -1,0 +1,38 @@
+version: "3.9"
+
+# CopilotKit web app — ACME presales UI (MAR-22/MAR-24)
+#
+# Deploy path on VPS:
+#   /home/marwanelzaher/ai-company/copilotkit/docker-compose.yml
+#   (copilotkit-reconciler.sh points here via COMPOSE_FILE env var)
+#
+# Usage:
+#   cp docker/copilotkit.env.example /home/marwanelzaher/ai-company/copilotkit/.env
+#   # fill in all required values, then:
+#   docker compose -f docker/docker-compose.copilotkit.yml \
+#     --env-file /home/marwanelzaher/ai-company/copilotkit/.env up -d
+#
+# Public hostname: rfp.marwanelzaher.info (via Cloudflare Tunnel → Traefik)
+# CF Access enforces authentication before requests reach Traefik.
+# Run infra/cf-rfp-access-setup.sh once to wire the Access application.
+
+services:
+  copilotkit:
+    image: ${GHCR_IMAGE}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    mem_limit: 512m
+    networks:
+      - n8n_default
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.copilotkit.rule=Host(`rfp.marwanelzaher.info`)"
+      - traefik.http.routers.copilotkit.entrypoints=web,websecure
+      - traefik.http.routers.copilotkit.tls=true
+      - traefik.http.routers.copilotkit.tls.certresolver=mytlschallenge
+      - traefik.http.services.copilotkit.loadbalancer.server.port=3000
+      - traefik.docker.network=n8n_default
+
+networks:
+  n8n_default:
+    external: true
