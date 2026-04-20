@@ -18,7 +18,6 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.90.0",
     "@axiomhq/logging": "^0.2.0",
     "@axiomhq/nextjs": "^0.2.0",
     "@copilotkit/react-core": "^1.56.2",
