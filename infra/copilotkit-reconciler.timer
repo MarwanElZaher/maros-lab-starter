@@ -1,0 +1,12 @@
+[Unit]
+Description=Run CopilotKit pull-loop reconciler every 2 minutes (MAR-23)
+Requires=copilotkit-reconciler.service
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=2min
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
