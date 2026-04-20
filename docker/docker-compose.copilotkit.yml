@@ -17,13 +17,37 @@ version: "3.9"
 # Run infra/cf-rfp-access-setup.sh once to wire the Access application.
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rfp_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: rfp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    mem_limit: 512m
+    networks:
+      - n8n_default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rfp_user -d rfp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   copilotkit:
     image: ${GHCR_IMAGE}:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file: .env
+    environment:
+      # Derived here so DATABASE_URL stays in sync with the postgres sidecar's password.
+      DATABASE_URL: postgresql://rfp_user:${POSTGRES_PASSWORD}@postgres:5432/rfp
     mem_limit: 512m
     networks:
       - n8n_default
+    depends_on:
+      postgres:
+        condition: service_healthy
     labels:
       - traefik.enable=true
       - "traefik.http.routers.copilotkit.rule=Host(`rfp.marwanelzaher.info`)"
@@ -32,6 +56,9 @@ services:
       - traefik.http.routers.copilotkit.tls.certresolver=mytlschallenge
       - traefik.http.services.copilotkit.loadbalancer.server.port=3000
       - traefik.docker.network=n8n_default
+
+volumes:
+  postgres_data:
 
 networks:
   n8n_default:
