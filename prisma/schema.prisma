@@ -61,3 +61,40 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+// ---------------------------------------------------------------------------
+// RBAC (Cloudflare Access — email-keyed users + roles)
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  presales_engineer
+  sales_director
+}
+
+model AppUser {
+  email       String       @id
+  role        UserRole
+  createdAt   DateTime     @default(now())
+  auditEvents AuditEvent[]
+
+  @@map("app_users")
+}
+
+// ---------------------------------------------------------------------------
+// Audit log
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  userEmail String
+  action    String
+  rfpId     String?
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  user AppUser @relation(fields: [userEmail], references: [email])
+
+  @@index([userEmail])
+  @@index([timestamp])
+  @@map("audit_events")
+}

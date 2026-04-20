@@ -5,12 +5,14 @@ const createJestConfig = nextJest({ dir: "./" });
 
 const config: Config = {
   coverageProvider: "v8",
-  testEnvironment: "jsdom",
+  testEnvironment: "node",
   setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
   testMatch: ["<rootDir>/tests/unit/**/*.test.{ts,tsx}"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
+  // jose ships as ESM; allow it to be transformed by next/jest's babel transform
+  transformIgnorePatterns: ["/node_modules/(?!(jose)/)"],
 };
 
 export default createJestConfig(config);
