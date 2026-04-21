@@ -43,6 +43,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/jose ./node_modules/jose
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
+# Middleware runtime deps not bundled by Next standalone output
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/jose ./node_modules/jose
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
