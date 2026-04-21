@@ -6,7 +6,7 @@ export const config = {
   matcher: ["/api/audit/:path*", "/api/rfp/:path*", "/api/kb/:path*", "/api/user/:path*"],
 };
 
-const CF_TEAM_DOMAIN = process.env.CF_TEAM_DOMAIN;
+const CF_TEAM_DOMAIN = process.env.CF_ACCESS_TEAM_DOMAIN;
 const CF_ACCESS_AUD = process.env.CF_ACCESS_AUD;
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
