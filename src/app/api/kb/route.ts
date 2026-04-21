@@ -5,46 +5,103 @@ import { logAuditEvent } from "@/lib/audit";
 const ragflowBase = () => process.env.RAGFLOW_BASE_URL ?? "";
 const ragflowKey = () => process.env.RAGFLOW_API_KEY ?? "";
 
-async function ragflow(path: string, method: string, body?: unknown) {
-  const res = await fetch(`${ragflowBase()}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${ragflowKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
+type Dataset = "products" | "pricing" | "past_bids";
+
+function datasetId(dataset: Dataset): string {
+  const map: Record<Dataset, string | undefined> = {
+    products: process.env.RAGFLOW_DATASET_PRODUCTS,
+    pricing: process.env.RAGFLOW_DATASET_PRICING,
+    past_bids: process.env.RAGFLOW_DATASET_PAST_BIDS,
+  };
+  return map[dataset] ?? "";
+}
+
+function isDataset(value: unknown): value is Dataset {
+  return value === "products" || value === "pricing" || value === "past_bids";
+}
+
+interface RagflowDoc {
+  id: string;
+  name: string;
+  run: string;
+  progress?: number;
+  create_time?: string;
+}
+
+interface RagflowListResponse {
+  code: number;
+  data?: { docs: RagflowDoc[] };
+  message?: string;
+}
+
+function mapStatus(run: string): "parsing" | "ready" | "failed" | "pending" {
+  if (run === "RUNNING") return "parsing";
+  if (run === "DONE") return "ready";
+  if (run === "FAIL") return "failed";
+  return "pending";
+}
+
+async function handleGet(req: NextRequest): Promise<NextResponse> {
+  const dataset = req.nextUrl.searchParams.get("dataset");
+  if (!isDataset(dataset)) {
+    return NextResponse.json({ error: "dataset must be products|pricing|past_bids" }, { status: 400 });
+  }
+  const dsId = datasetId(dataset);
+  if (!dsId) {
+    return NextResponse.json({ error: `Dataset ${dataset} not configured` }, { status: 503 });
+  }
+
+  const res = await fetch(`${ragflowBase()}/api/v1/datasets/${dsId}/documents`, {
+    headers: { Authorization: `Bearer ${ragflowKey()}` },
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`RAGflow ${method} ${path} failed: ${text}`);
+    return NextResponse.json({ error: `RAGflow error: ${text}` }, { status: 502 });
   }
-  return res.json();
+  const body = await res.json() as RagflowListResponse;
+  const docs = (body.data?.docs ?? []).map((d) => ({
+    id: d.id,
+    name: d.name,
+    status: mapStatus(d.run),
+    created_at: d.create_time ?? null,
+  }));
+  return NextResponse.json({ docs });
 }
 
 async function handlePost(req: NextRequest, user: RequestUser): Promise<NextResponse> {
-  const { action, entity, data } = await req.json() as {
-    action: "add_product" | "update_pricing" | "archive_bid";
-    entity: string;
-    data?: Record<string, unknown>;
-  };
+  const form = await req.formData();
+  const file = form.get("file");
+  const dataset = form.get("dataset");
 
-  if (!action || !entity) {
-    return NextResponse.json({ error: "action and entity are required" }, { status: 400 });
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "file is required" }, { status: 400 });
+  }
+  if (!isDataset(dataset)) {
+    return NextResponse.json({ error: "dataset must be products|pricing|past_bids" }, { status: 400 });
+  }
+  const dsId = datasetId(dataset);
+  if (!dsId) {
+    return NextResponse.json({ error: `Dataset ${dataset} not configured` }, { status: 503 });
   }
 
-  let result: unknown;
-  if (action === "add_product") {
-    result = await ragflow("/api/v1/document", "POST", { name: entity, ...data });
-  } else if (action === "update_pricing") {
-    result = await ragflow(`/api/v1/document/${entity}`, "PATCH", data);
-  } else if (action === "archive_bid") {
-    result = await ragflow(`/api/v1/document/${entity}`, "DELETE");
-  } else {
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  }
+  const upstream = new FormData();
+  upstream.append("file", file, file.name);
 
-  await logAuditEvent({ action: "kb.update", userEmail: user.email, metadata: { action, entity } });
-  return NextResponse.json({ ok: true, data: result });
+  const res = await fetch(`${ragflowBase()}/api/v1/datasets/${dsId}/documents`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${ragflowKey()}` },
+    body: upstream,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    return NextResponse.json({ error: `RAGflow error: ${text}` }, { status: 502 });
+  }
+  const body = await res.json() as { code: number; data?: { id: string }[] };
+  const docId = body.data?.[0]?.id ?? null;
+
+  await logAuditEvent({ action: "kb.create", userEmail: user.email, metadata: { dataset, docId, fileName: file.name } });
+  return NextResponse.json({ ok: true, docId });
 }
 
+export const GET = withRole("sales_director", (req, _user) => handleGet(req));
 export const POST = withRole("sales_director", handlePost);
