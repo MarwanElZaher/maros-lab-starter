@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
@@ -8,7 +8,7 @@ import "@copilotkit/react-ui/styles.css";
 import { RfpReport } from "@/types/rfp";
 import { ReportView } from "@/components/ReportView";
 
-export default function ReportPage() {
+function ReportInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [report, setReport] = useState<RfpReport | null>(null);
@@ -102,5 +102,13 @@ export default function ReportPage() {
         labels={{ title: "Ask about this tender", placeholder: "E.g. What are the main risks?" }}
       />
     </CopilotKit>
+  );
+}
+
+export default function ReportPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReportInner />
+    </Suspense>
   );
 }
