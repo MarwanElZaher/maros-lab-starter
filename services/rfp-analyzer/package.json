@@ -14,7 +14,8 @@
     "axios": "^1.7.9",
     "fastify": "^4.28.1",
     "pdf-parse": "^1.1.1",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "@fastify/multipart": "^8.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.7",

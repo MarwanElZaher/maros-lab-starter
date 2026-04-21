@@ -31,6 +31,7 @@ const llm = new ChatOpenAI({
 
 const GraphState = Annotation.Root({
   pdfUrl: Annotation<string>({ reducer: (_, b) => b, default: () => '' }),
+  pdfBytes: Annotation<Buffer | null>({ reducer: (_, b) => b, default: () => null }),
   pdfText: Annotation<string>({ reducer: (_, b) => b, default: () => '' }),
   requirements: Annotation<Requirements | null>({
     reducer: (_, b) => b,
@@ -57,12 +58,20 @@ async function extractRequirements(state: State): Promise<Partial<State>> {
 
   let pdfText: string;
   try {
-    const resp = await axios.get<ArrayBuffer>(state.pdfUrl, {
-      responseType: 'arraybuffer',
-      signal: controller.signal as never,
-      maxContentLength: 50 * 1024 * 1024,
-    });
-    const parsed = await pdfParse(Buffer.from(resp.data));
+    let bytes: Buffer;
+    if (state.pdfBytes && state.pdfBytes.length > 0) {
+      bytes = state.pdfBytes;
+    } else if (state.pdfUrl) {
+      const resp = await axios.get<ArrayBuffer>(state.pdfUrl, {
+        responseType: 'arraybuffer',
+        signal: controller.signal as never,
+        maxContentLength: 50 * 1024 * 1024,
+      });
+      bytes = Buffer.from(resp.data);
+    } else {
+      throw new Error('neither pdfBytes nor pdfUrl provided');
+    }
+    const parsed = await pdfParse(bytes);
     pdfText = parsed.text.slice(0, 40_000);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -171,8 +180,11 @@ const graph = new StateGraph(GraphState)
   .addEdge('synthesiseRecommendation', END)
   .compile();
 
-export async function runAnalysis(pdfUrl: string): Promise<Recommendation> {
-  const result = await graph.invoke({ pdfUrl });
+export async function runAnalysis(input: { pdfUrl?: string; pdfBytes?: Buffer }): Promise<Recommendation> {
+  const result = await graph.invoke({
+    pdfUrl: input.pdfUrl ?? '',
+    pdfBytes: input.pdfBytes ?? null,
+  });
   if (!result.recommendation) {
     throw new Error('Graph completed without producing a recommendation');
   }
