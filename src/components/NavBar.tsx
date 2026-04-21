@@ -26,6 +26,9 @@ export function NavBar() {
       <Link href="/upload" className="text-sm text-gray-600 hover:text-gray-900">
         Upload
       </Link>
+      <Link href="/analyses" className="text-sm text-gray-600 hover:text-gray-900">
+        Past Analyses
+      </Link>
       {me?.role === "sales_director" && (
         <>
           <Link href="/admin/kb" className="text-sm text-gray-600 hover:text-gray-900">

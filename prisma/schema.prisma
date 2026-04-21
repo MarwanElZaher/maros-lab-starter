@@ -97,6 +97,8 @@ model RfpAnalysis {
   redFlagCount   Int
   createdAt      DateTime @default(now())
 
+  @@index([submitterEmail])
+  @@index([createdAt])
   @@map("rfp_analyses")
 }
 

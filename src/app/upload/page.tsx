@@ -67,8 +67,9 @@ export default function UploadPage() {
             setProgress(data as ProgressEvent);
           } else if (eventName === "result") {
             const report = data.report as RfpReport;
-            sessionStorage.setItem("rfp_report", JSON.stringify(report));
-            router.push("/report");
+            const rfpId: string = data.rfpId ?? report.rfpId ?? "";
+            sessionStorage.setItem("rfp_report", JSON.stringify({ ...report, rfpId }));
+            router.push(rfpId ? `/report?id=${rfpId}` : "/report");
             return;
           } else if (eventName === "error") {
             setError(data.message ?? "Analysis failed");
