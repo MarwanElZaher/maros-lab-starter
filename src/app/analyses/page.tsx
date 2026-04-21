@@ -137,7 +137,7 @@ export default function AnalysesPage() {
               {analyses.map((a) => (
                 <tr
                   key={a.id}
-                  onClick={() => router.push(`/report?id=${a.rfpId}`)}
+                  onClick={() => router.push(`/analyses/${a.id}`)}
                   className="border-b border-gray-100 cursor-pointer hover:bg-indigo-50 transition-colors"
                 >
                   <td className="px-4 py-3 font-medium text-gray-900">
