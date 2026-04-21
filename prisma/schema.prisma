@@ -82,6 +82,25 @@ model AppUser {
 }
 
 // ---------------------------------------------------------------------------
+// RFP Analysis
+// ---------------------------------------------------------------------------
+
+model RfpAnalysis {
+  id             String   @id @default(cuid())
+  rfpId          String   @unique
+  submitterEmail String
+  clientName     String?
+  pdfObjectPath  String
+  recommendation Json
+  decision       String
+  confidence     Int
+  redFlagCount   Int
+  createdAt      DateTime @default(now())
+
+  @@map("rfp_analyses")
+}
+
+// ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------
 
