@@ -1,4 +1,5 @@
 version: "3.9"
+name: maroslab-rfp-analyzer
 
 # RFP Analysis LangGraph service — ACME presales pipeline (MAR-16/MAR-18)
 #

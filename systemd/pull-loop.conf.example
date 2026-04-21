@@ -5,5 +5,9 @@
 #
 # Copy this file to /etc/maroslab/pull-loop.conf on the VPS and edit it.
 
-# Main Next.js / CopilotKit UI (slice 2)
+# Main Next.js / CopilotKit UI
 ghcr.io/marwanelzaher/maros-lab-starter:main|/home/marwanelzaher/ai-company/maros-lab-starter/docker-compose.prod.yml|app
+
+# RFP Analyzer LangGraph service (built on VPS — image tag tracks branch digest)
+# Note: this service is built locally; the pull-loop handles restart-on-update only.
+# ghcr.io/marwanelzaher/maros-lab-starter/rfp-analyzer:main|/home/marwanelzaher/ai-company/maros-lab-starter/docker/docker-compose.rfp-analyzer.yml|rfp-analyzer

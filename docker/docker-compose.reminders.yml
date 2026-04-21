@@ -1,4 +1,5 @@
 version: "3.9"
+name: maroslab-reminders
 
 # WhatsApp appointment-reminder stack
 # Deploy on VPS alongside the main n8n stack.
