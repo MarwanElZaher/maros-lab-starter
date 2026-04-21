@@ -1,9 +1,11 @@
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
-import { runAnalysis } from './graph';
+import { runAnalysis, runAnalysisFromBuffer } from './graph';
 
 const server = Fastify({ logger: false });
+server.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
+
 server.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
 const AnalyzeBody = z.object({
@@ -14,6 +16,24 @@ server.get('/health', async () => ({ ok: true }));
 
 // JSON path (backwards compat): { pdf_url: "https://..." }
 server.post('/analyze', async (request, reply) => {
+  const contentType = request.headers['content-type'] ?? '';
+
+  if (contentType.includes('multipart/form-data')) {
+    const data = await request.file();
+    if (!data) {
+      return reply.status(400).send({ error: 'No file provided' });
+    }
+    const buf = await data.toBuffer();
+    try {
+      const recommendation = await runAnalysisFromBuffer(buf);
+      return reply.send(recommendation);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      request.log.error({ err }, 'Analysis failed');
+      return reply.status(500).send({ error: message });
+    }
+  }
+
   const parsed = AnalyzeBody.safeParse(request.body);
   if (!parsed.success) {
     return reply.status(400).send({ error: parsed.error.flatten() });

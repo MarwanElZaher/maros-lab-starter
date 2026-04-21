@@ -19,15 +19,17 @@
       "parameters": {
         "method": "POST",
         "url": "http://rfp-analyzer:3000/analyze",
-        "sendHeaders": true,
-        "headerParameters": {
+        "sendBody": true,
+        "bodyContentType": "multipart-form-data",
+        "bodyParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "file"
+            }
           ]
         },
-        "sendBody": true,
-        "bodyContentType": "json",
-        "jsonBody": "={{ JSON.stringify({ pdf_url: $json.body.pdf_url }) }}",
         "options": {
           "timeout": 360000,
           "response": {
@@ -122,7 +124,7 @@
   },
   "staticData": null,
   "meta": {
-    "description": "POST { pdf_url } → LangGraph rfp-analyzer → { decision, confidence, justifications, redFlags, similarBids }. Webhook path: /webhook/rfp-analyze. Timeout: 6 min (LangGraph may call OpenRouter + RAGflow multiple times)."
+    "description": "POST multipart/form-data { file: <binary PDF> } → LangGraph rfp-analyzer → { decision, confidence, justifications, redFlags, similarBids }. Webhook path: /webhook/rfp-analyze. Timeout: 6 min (LangGraph may call OpenRouter + RAGflow multiple times)."
   },
   "pinData": {},
   "versionId": "1"
