@@ -71,6 +71,6 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ docId: string }> },
 ) {
-  const resolved = await params;
-  return withRole("sales_director", (r) => handleGetStatus(r, resolved))(req);
+  const resolvedParams = await params;
+  return withRole("sales_director", (r) => handleGetStatus(r, resolvedParams))(req);
 }

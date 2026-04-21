@@ -55,6 +55,6 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ docId: string }> },
 ) {
-  const resolved = await params;
-  return withRole("sales_director", (r, u) => handleParse(r, u, resolved))(req);
+  const resolvedParams = await params;
+  return withRole("sales_director", (r, u) => handleParse(r, u, resolvedParams))(req);
 }
