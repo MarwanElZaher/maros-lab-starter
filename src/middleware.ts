@@ -3,7 +3,14 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 // Routes that require Cloudflare Access JWT auth
 export const config = {
-  matcher: ["/api/audit/:path*", "/api/rfp/:path*", "/api/kb/:path*", "/api/user/:path*"],
+  matcher: [
+    "/api/audit/:path*",
+    "/api/rfp/:path*",
+    "/api/kb/:path*",
+    "/api/user/:path*",
+    "/api/analyses/:path*",
+    "/api/export/:path*",
+  ],
 };
 
 const CF_TEAM_DOMAIN = process.env.CF_ACCESS_TEAM_DOMAIN;
