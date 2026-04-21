@@ -6,6 +6,8 @@ export type AuditAction =
   | "kb.create"
   | "kb.update"
   | "kb.archive"
+  | "kb.delete"
+  | "kb.parse"
   | "audit.export";
 
 export interface AuditEventInput {

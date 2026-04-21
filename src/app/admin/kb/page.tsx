@@ -37,6 +37,7 @@ export default function KbAdminPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [parsingId, setParsingId] = useState<string | null>(null);
 
   const fetchDocs = useCallback(async (ds: Dataset) => {
     setLoadingDocs(true);
@@ -89,6 +90,23 @@ export default function KbAdminPage() {
       setUploadMsg({ ok: false, text: "Network error" });
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleParse(docId: string) {
+    setParsingId(docId);
+    try {
+      const res = await fetch(`/api/kb/${docId}/parse?dataset=${dataset}`, { method: "POST" });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        alert(json.error ?? "Re-parse failed");
+        return;
+      }
+      await fetchDocs(dataset);
+    } catch {
+      alert("Network error");
+    } finally {
+      setParsingId(null);
     }
   }
 
@@ -200,7 +218,14 @@ export default function KbAdminPage() {
                   <td className="px-6 py-3 text-gray-500">
                     {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : "—"}
                   </td>
-                  <td className="px-6 py-3 text-right">
+                  <td className="px-6 py-3 text-right flex items-center justify-end gap-3">
+                    <button
+                      onClick={() => handleParse(doc.id)}
+                      disabled={parsingId === doc.id || doc.status === "parsing"}
+                      className="text-xs text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
+                    >
+                      {parsingId === doc.id ? "Queuing…" : "Re-parse"}
+                    </button>
                     <button
                       onClick={() => handleDelete(doc.id)}
                       disabled={deletingId === doc.id}
