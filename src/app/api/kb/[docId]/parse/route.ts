@@ -51,9 +51,10 @@ async function handleParse(
   return NextResponse.json({ ok: true });
 }
 
-export function POST(
+export async function POST(
   req: NextRequest,
-  { params }: { params: { docId: string } },
+  { params }: { params: Promise<{ docId: string }> },
 ) {
-  return withRole("sales_director", (r, u) => handleParse(r, u, params))(req);
+  const resolved = await params;
+  return withRole("sales_director", (r, u) => handleParse(r, u, resolved))(req);
 }

@@ -67,9 +67,10 @@ async function handleGetStatus(
   return NextResponse.json({ id: doc.id, status: mapStatus(doc.run), progress: doc.progress ?? 0 });
 }
 
-export function GET(
+export async function GET(
   req: NextRequest,
-  { params }: { params: { docId: string } },
+  { params }: { params: Promise<{ docId: string }> },
 ) {
-  return withRole("sales_director", (r) => handleGetStatus(r, params))(req);
+  const resolved = await params;
+  return withRole("sales_director", (r) => handleGetStatus(r, resolved))(req);
 }

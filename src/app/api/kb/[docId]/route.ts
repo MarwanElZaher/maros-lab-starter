@@ -51,9 +51,10 @@ async function handleDelete(
   return NextResponse.json({ ok: true });
 }
 
-export function DELETE(
+export async function DELETE(
   req: NextRequest,
-  { params }: { params: { docId: string } },
+  { params }: { params: Promise<{ docId: string }> },
 ) {
-  return withRole("sales_director", (r, u) => handleDelete(r, u, params))(req);
+  const resolved = await params;
+  return withRole("sales_director", (r, u) => handleDelete(r, u, resolved))(req);
 }
