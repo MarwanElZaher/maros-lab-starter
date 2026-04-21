@@ -103,5 +103,5 @@ async function handlePost(req: NextRequest, user: RequestUser): Promise<NextResp
   return NextResponse.json({ ok: true, docId });
 }
 
-export const GET = withRole("sales_director", (req, _user) => handleGet(req));
+export const GET = withRole("sales_director", (req) => handleGet(req));
 export const POST = withRole("sales_director", handlePost);

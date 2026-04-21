@@ -71,5 +71,5 @@ export function GET(
   req: NextRequest,
   { params }: { params: { docId: string } },
 ) {
-  return withRole("sales_director", (r, _u) => handleGetStatus(r, params))(req);
+  return withRole("sales_director", (r) => handleGetStatus(r, params))(req);
 }

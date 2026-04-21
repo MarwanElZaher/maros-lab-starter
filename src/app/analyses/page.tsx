@@ -52,12 +52,12 @@ export default function AnalysesPage() {
         <h1 className="text-2xl font-bold">Past Analyses</h1>
         <div className="flex gap-3">
           {role === "sales_director" && (
-            <a
-              href="/api/analyses/export"
+            <button
+              onClick={() => { window.location.href = "/api/analyses/export"; }}
               className="text-sm bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
             >
               Export CSV
-            </a>
+            </button>
           )}
           <button
             onClick={() => router.push("/upload")}
