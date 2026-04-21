@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { runAnalysis } from './graph';
 
 const server = Fastify({ logger: false });
-await server.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
+server.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
 const AnalyzeBody = z.object({
   pdf_url: z.string().url(),
