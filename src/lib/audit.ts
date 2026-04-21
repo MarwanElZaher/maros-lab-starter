@@ -3,6 +3,7 @@ import { db } from "./db";
 export type AuditAction =
   | "rfp.upload"
   | "rfp.view"
+  | "rfp.export"
   | "kb.create"
   | "kb.update"
   | "kb.archive"
