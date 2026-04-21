@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
-import { runAnalysis, runAnalysisFromBuffer } from './graph';
+import { runAnalysis } from './graph';
 
 const server = Fastify({ logger: false });
 server.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
@@ -23,7 +23,7 @@ server.post('/analyze', async (request, reply) => {
     }
     const buf = await data.toBuffer();
     try {
-      const recommendation = await runAnalysisFromBuffer(buf);
+      const recommendation = await runAnalysis({ pdfBytes: buf });
       return reply.send(recommendation);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
