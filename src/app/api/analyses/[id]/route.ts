@@ -11,7 +11,9 @@ export async function GET(
 
   const { id } = await params;
 
-  const analysis = await db.rfpAnalysis.findUnique({ where: { id } });
+  const analysis = await db.rfpAnalysis.findFirst({
+    where: { OR: [{ id }, { rfpId: id }] },
+  });
 
   if (!analysis) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
