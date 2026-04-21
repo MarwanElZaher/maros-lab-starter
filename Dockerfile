@@ -20,8 +20,8 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
-# Production runner — minimal image
-FROM base AS runner
+# Production runner — Debian slim so Prisma's native schema-engine binary works without musl hacks
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
