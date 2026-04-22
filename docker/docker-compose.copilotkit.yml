@@ -45,6 +45,7 @@ services:
     mem_limit: 512m
     networks:
       - n8n_default
+      - docker_ragflow
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,4 +63,6 @@ volumes:
 
 networks:
   n8n_default:
+    external: true
+  docker_ragflow:
     external: true
