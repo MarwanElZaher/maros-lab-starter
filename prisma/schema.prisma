@@ -97,6 +97,14 @@ model RfpAnalysis {
   redFlagCount   Int
   createdAt      DateTime @default(now())
 
+  // Override columns (MAR-65) — CHECK constraints enforced in migration SQL
+  overrideDecision     String   @default("none") @map("override_decision")
+  overrideScope        String?  @map("override_scope")
+  overrideRationale    String?  @map("override_rationale")
+  overrideByUserEmail  String?  @map("override_by_user_email")
+  overrideAt           DateTime? @map("override_at")
+  citedAnalysisIds     String[] @map("cited_analysis_ids")
+
   @@index([submitterEmail])
   @@index([createdAt])
   @@map("rfp_analyses")

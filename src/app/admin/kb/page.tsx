@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-type Dataset = "products" | "pricing" | "past_bids";
+type Dataset = "products" | "pricing" | "past_bids" | "licensing" | "user_guides";
 type DocStatus = "parsing" | "ready" | "failed" | "pending";
 
 interface KbDoc {
@@ -15,7 +15,17 @@ interface KbDoc {
 const DATASET_LABELS: Record<Dataset, string> = {
   products: "Products",
   pricing: "Pricing",
-  past_bids: "Past Bids",
+  past_bids: "Past Bids & Case Studies",
+  licensing: "Licensing",
+  user_guides: "User Guides",
+};
+
+const DATASET_HINTS: Record<Dataset, string> = {
+  products: "Brochures, architecture docs, and data sheets that describe product features and specifications.",
+  pricing: "Price lists, discount tiers, and SKU pricing tables. Do not upload licensing rules here.",
+  past_bids: "Past bid submissions and customer case studies showing real-world delivery evidence.",
+  licensing: "Edition entitlements, SKU-to-license mappings, and usage rights. Not for price lists.",
+  user_guides: "Product manuals, installation guides, and step-by-step how-to documentation.",
 };
 
 const STATUS_CLASSES: Record<DocStatus, string> = {
@@ -135,9 +145,9 @@ export default function KbAdminPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-5">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Dataset</label>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             {(Object.entries(DATASET_LABELS) as [Dataset, string][]).map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 cursor-pointer">
+              <label key={value} className="flex items-center gap-2 cursor-pointer" title={DATASET_HINTS[value]}>
                 <input
                   type="radio"
                   name="dataset"
@@ -150,6 +160,7 @@ export default function KbAdminPage() {
               </label>
             ))}
           </div>
+          <p className="text-xs text-gray-500 mt-1">{DATASET_HINTS[dataset]}</p>
         </div>
 
         <form onSubmit={handleUpload} className="space-y-4">

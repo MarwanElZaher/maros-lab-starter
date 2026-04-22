@@ -5,19 +5,27 @@ import { logAuditEvent } from "@/lib/audit";
 const ragflowBase = () => process.env.RAGFLOW_BASE_URL ?? "";
 const ragflowKey = () => process.env.RAGFLOW_API_KEY ?? "";
 
-type Dataset = "products" | "pricing" | "past_bids";
+type Dataset = "products" | "pricing" | "past_bids" | "licensing" | "user_guides";
 
 function datasetId(dataset: Dataset): string {
   const map: Record<Dataset, string | undefined> = {
     products: process.env.RAGFLOW_DATASET_PRODUCTS,
     pricing: process.env.RAGFLOW_DATASET_PRICING,
     past_bids: process.env.RAGFLOW_DATASET_PAST_BIDS,
+    licensing: process.env.RAGFLOW_DATASET_LICENSING,
+    user_guides: process.env.RAGFLOW_DATASET_USER_GUIDES,
   };
   return map[dataset] ?? "";
 }
 
 function isDataset(value: unknown): value is Dataset {
-  return value === "products" || value === "pricing" || value === "past_bids";
+  return (
+    value === "products" ||
+    value === "pricing" ||
+    value === "past_bids" ||
+    value === "licensing" ||
+    value === "user_guides"
+  );
 }
 
 interface RagflowDoc {
@@ -44,7 +52,7 @@ function mapStatus(run: string): "parsing" | "ready" | "failed" | "pending" {
 async function handleGet(req: NextRequest): Promise<NextResponse> {
   const dataset = req.nextUrl.searchParams.get("dataset");
   if (!isDataset(dataset)) {
-    return NextResponse.json({ error: "dataset must be products|pricing|past_bids" }, { status: 400 });
+    return NextResponse.json({ error: "dataset must be products|pricing|past_bids|licensing|user_guides" }, { status: 400 });
   }
   const dsId = datasetId(dataset);
   if (!dsId) {
@@ -77,7 +85,7 @@ async function handlePost(req: NextRequest, user: RequestUser): Promise<NextResp
     return NextResponse.json({ error: "file is required" }, { status: 400 });
   }
   if (!isDataset(dataset)) {
-    return NextResponse.json({ error: "dataset must be products|pricing|past_bids" }, { status: 400 });
+    return NextResponse.json({ error: "dataset must be products|pricing|past_bids|licensing|user_guides" }, { status: 400 });
   }
   const dsId = datasetId(dataset);
   if (!dsId) {
