@@ -31,12 +31,20 @@ export const RequirementsSchema = z.object({
 
 export type Requirements = z.infer<typeof RequirementsSchema>;
 
+export const EntitlementMismatchSchema = z.object({
+  feature: z.string(),
+  requiredEdition: z.string(),
+  customerEdition: z.string().nullable(),
+  severity: z.enum(['critical', 'high', 'medium', 'low']),
+});
+
 export const BlockerAnalysisSchema = z.object({
   blockers: z.array(z.object({
     description: z.string(),
     severity: z.enum(['critical', 'high', 'medium', 'low']),
     category: z.string(),
   })),
+  entitlementMismatches: z.array(EntitlementMismatchSchema).optional(),
   hasCriticalBlocker: z.boolean(),
 });
 
@@ -50,4 +58,5 @@ export interface KbResults {
   products: string;
   pricing: string;
   pastBids: string;
+  licensing: string;
 }

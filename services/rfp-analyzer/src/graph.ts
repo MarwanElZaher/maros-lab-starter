@@ -15,6 +15,7 @@ import {
 const PRODUCTS_DATASET = process.env.RAGFLOW_DATASET_PRODUCTS ?? '';
 const PRICING_DATASET = process.env.RAGFLOW_DATASET_PRICING ?? '';
 const PAST_BIDS_DATASET = process.env.RAGFLOW_DATASET_PAST_BIDS ?? '';
+const LICENSING_DATASET = process.env.RAGFLOW_DATASET_LICENSING ?? '';
 
 const llm = new ChatOpenAI({
   modelName: process.env.OPENROUTER_MODEL ?? 'anthropic/claude-haiku-4-5',
@@ -40,6 +41,7 @@ const GraphState = Annotation.Root({
   kbProducts: Annotation<string>({ reducer: (_, b) => b, default: () => '' }),
   kbPricing: Annotation<string>({ reducer: (_, b) => b, default: () => '' }),
   kbPastBids: Annotation<string>({ reducer: (_, b) => b, default: () => '' }),
+  kbLicensing: Annotation<string>({ reducer: (_, b) => b, default: () => '' }),
   blockerAnalysis: Annotation<BlockerAnalysis | null>({
     reducer: (_, b) => b,
     default: () => null,
@@ -99,13 +101,14 @@ async function extractRequirements(state: State): Promise<Partial<State>> {
 async function queryKnowledgeBases(state: State): Promise<Partial<State>> {
   const query = state.requirements?.summary ?? state.pdfText.slice(0, 500);
 
-  const [kbProducts, kbPricing, kbPastBids] = await Promise.all([
+  const [kbProducts, kbPricing, kbPastBids, kbLicensing] = await Promise.all([
     retrieveChunks(`Products matching: ${query}`, PRODUCTS_DATASET),
     retrieveChunks(`Pricing and discounts for: ${query}`, PRICING_DATASET),
     retrieveChunks(`Similar past bids: ${query}`, PAST_BIDS_DATASET, 5),
+    retrieveChunks(`Licensing and entitlements for: ${query}`, LICENSING_DATASET),
   ]);
 
-  return { kbProducts, kbPricing, kbPastBids };
+  return { kbProducts, kbPricing, kbPastBids, kbLicensing };
 }
 
 async function detectBlockers(state: State): Promise<Partial<State>> {
@@ -118,7 +121,13 @@ async function detectBlockers(state: State): Promise<Partial<State>> {
     },
     {
       role: 'user',
-      content: `RFP Requirements:\n${JSON.stringify(state.requirements, null, 2)}\n\nOur Products:\n${state.kbProducts}\n\nOur Pricing:\n${state.kbPricing}\n\nIdentify blockers where we cannot meet mandatory requirements.`,
+      content: [
+        `RFP Requirements:\n${JSON.stringify(state.requirements, null, 2)}`,
+        `Our Products:\n${state.kbProducts}`,
+        `Our Pricing:\n${state.kbPricing}`,
+        `Also check for entitlement mismatches using the Licensing context below:\nan entitlement mismatch is when the RFP requires a product feature, the product\nbrochure confirms it exists, but the licensing rules restrict it to a specific\nedition or tier that the customer is unlikely to hold (based on budget or stated\nscope). List each mismatch with the feature name, required edition, and estimated\ncustomer edition (or null if unknown).\n\nLicensing context:\n${state.kbLicensing}`,
+        'Identify blockers where we cannot meet mandatory requirements.',
+      ].join('\n\n'),
     },
   ]);
 
@@ -150,6 +159,8 @@ async function synthesiseRecommendation(state: State): Promise<Partial<State>> {
         `Our Products:\n${state.kbProducts}`,
         `Our Pricing:\n${state.kbPricing}`,
         `Past Similar Bids:\n${state.kbPastBids}`,
+        `Licensing (AUTHORITATIVE over Products for edition/entitlement claims):\n${state.kbLicensing}`,
+        `IMPORTANT: If kbLicensing contains edition or entitlement constraints that narrow or\ncontradict a claim in kbProducts (e.g. "Feature X is available in Enterprise edition\nonly"), treat the licensing constraint as authoritative. Do not cite the product\nbrochure claim as evidence the RFP can be met if the licensing doc says otherwise.`,
         `Blocker Analysis:\n${JSON.stringify(state.blockerAnalysis, null, 2)}`,
         'Produce the final recommendation. Include 3-5 justifications, all identified red flags with severity, and 2-3 similar bids with outcomes. If datasets are not yet configured, still produce a best-effort recommendation from the RFP text alone.',
       ].join('\n\n'),
