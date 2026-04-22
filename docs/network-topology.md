@@ -1,5 +1,7 @@
 # VPS Docker Network Topology
 
+> **For canonical VPS paths, env file locations, and service names see [`docs/infra/vps-layout.md`](infra/vps-layout.md).**
+
 ## Networks
 
 | Docker network    | Owner compose project | Purpose |
