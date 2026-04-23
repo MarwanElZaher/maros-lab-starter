@@ -1,5 +1,16 @@
 export type Decision = "GO" | "CONDITIONAL GO" | "NO-GO";
 
+export type OverrideDecision = "none" | "go_full" | "go_scoped" | "no_go_confirmed";
+
+export interface OverrideFields {
+  overrideDecision: OverrideDecision;
+  overrideScope?: string | null;
+  overrideRationale?: string | null;
+  overrideByUserEmail?: string | null;
+  overrideAt?: string | null;
+  citedAnalysisIds?: string[];
+}
+
 export interface RedFlag {
   severity: "critical" | "high" | "medium" | "low";
   description: string;

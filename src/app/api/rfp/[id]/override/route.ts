@@ -49,7 +49,9 @@ async function handleOverride(
     );
   }
 
-  const analysis = await db.rfpAnalysis.findUnique({ where: { rfpId: id } });
+  const analysis = await db.rfpAnalysis.findFirst({
+    where: { OR: [{ id }, { rfpId: id }] },
+  });
   if (!analysis) {
     return NextResponse.json({ error: "Analysis not found" }, { status: 404 });
   }
@@ -64,7 +66,7 @@ async function handleOverride(
 
   const now = new Date();
   const updated = await db.rfpAnalysis.update({
-    where: { rfpId: id },
+    where: { id: analysis.id },
     data: {
       overrideDecision: override_decision,
       overrideScope: override_scope ?? null,
