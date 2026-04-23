@@ -105,6 +105,10 @@ model RfpAnalysis {
   overrideAt           DateTime? @map("override_at")
   citedAnalysisIds     String[] @map("cited_analysis_ids")
 
+  // RAGflow writeback tracking (MAR-67)
+  persistedToRagflow   Boolean  @default(false) @map("persisted_to_ragflow")
+  ragflowDocId         String?  @map("ragflow_doc_id")
+
   @@index([submitterEmail])
   @@index([createdAt])
   @@map("rfp_analyses")

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withRole, RequestUser } from "@/lib/auth";
 import { logAuditEvent } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { writebackToRagflow } from "@/lib/ragflow-writeback";
 
 const VALID_DECISIONS = ["go_full", "go_scoped", "no_go_confirmed"] as const;
 type OverrideDecision = (typeof VALID_DECISIONS)[number];
@@ -90,17 +91,8 @@ async function handleOverride(
     },
   });
 
-  // Trigger background RAGflow writeback (fire-and-forget; S3 implements the handler)
-  const writebackUrl = process.env.N8N_RAGFLOW_WRITEBACK_URL;
-  if (writebackUrl) {
-    fetch(writebackUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ analysisId: updated.id, rfpId: id, trigger: "override" }),
-    }).catch(() => {
-      // S3 writeback; failures are non-fatal and retried by the job runner
-    });
-  }
+  // Background RAGflow writeback — fire-and-forget, non-fatal
+  writebackToRagflow(updated.id).catch(() => {});
 
   return NextResponse.json({ analysis: updated });
 }
