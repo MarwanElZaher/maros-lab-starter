@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRole, RequestUser } from "@/lib/auth";
 import { logAuditEvent } from "@/lib/audit";
+import { setRagflowDocumentMetadata } from "@/lib/ragflow-metadata";
 
 const ragflowBase = () => process.env.RAGFLOW_BASE_URL ?? "";
 const ragflowKey = () => process.env.RAGFLOW_API_KEY ?? "";
@@ -106,6 +107,24 @@ async function handlePost(req: NextRequest, user: RequestUser): Promise<NextResp
   }
   const body = await res.json() as { code: number; data?: { id: string }[] };
   const docId = body.data?.[0]?.id ?? null;
+
+  // Apply metadata to the uploaded document
+  if (docId) {
+    const meta: Record<string, string> = {};
+    const product = form.get("product");
+    const version = form.get("version");
+    const date = form.get("date");
+    const outcome = form.get("outcome");
+    const customer = form.get("customer");
+    if (product && typeof product === "string") meta.product = product;
+    if (version && typeof version === "string") meta.version = version;
+    if (date && typeof date === "string") meta.date = date;
+    if (outcome && typeof outcome === "string") meta.outcome = outcome;
+    if (customer && typeof customer === "string") meta.customer = customer;
+    if (Object.keys(meta).length > 0) {
+      await setRagflowDocumentMetadata(dsId, docId, meta).catch(() => {});
+    }
+  }
 
   await logAuditEvent({ action: "kb.create", userEmail: user.email, metadata: { dataset, docId, fileName: file.name } });
   return NextResponse.json({ ok: true, docId });

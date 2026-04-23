@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { setRagflowDocumentMetadata } from "@/lib/ragflow-metadata";
 
 const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 60_000;
@@ -185,6 +186,16 @@ export async function writebackToRagflow(analysisId: string): Promise<void> {
 
   const markdown = renderMarkdown(analysis);
   const docId = await uploadRagflowDoc(analysisId, markdown);
+
+  // Set structured metadata so query_kb can filter by product/outcome
+  const meta: Record<string, string> = {
+    product: "cross",
+    date: analysis.createdAt.toISOString().slice(0, 10),
+    outcome: analysis.overrideDecision !== "none" ? analysis.overrideDecision : analysis.decision.toLowerCase(),
+  };
+  if (analysis.clientName) meta.customer = analysis.clientName;
+  await setRagflowDocumentMetadata(pastBidsDatasetId(), docId, meta).catch(() => {});
+
   await triggerRagflowParse(docId);
   await pollUntilDone(docId);
 

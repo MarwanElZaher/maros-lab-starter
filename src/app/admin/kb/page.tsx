@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { PRODUCT_SLUGS, OUTCOME_VALUES, PRODUCT_REQUIRED_DATASETS, PAST_BIDS_ONLY_DATASETS } from "@/lib/product-catalogue";
 
 type Dataset = "products" | "pricing" | "past_bids" | "licensing" | "user_guides";
 type DocStatus = "parsing" | "ready" | "failed" | "pending";
@@ -35,6 +36,10 @@ const STATUS_CLASSES: Record<DocStatus, string> = {
   pending: "bg-gray-100 text-gray-600",
 };
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function KbAdminPage() {
   const [dataset, setDataset] = useState<Dataset>("products");
   const [docs, setDocs] = useState<KbDoc[]>([]);
@@ -46,8 +51,18 @@ export default function KbAdminPage() {
   const [uploadMsg, setUploadMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Metadata fields
+  const [product, setProduct] = useState("");
+  const [version, setVersion] = useState("");
+  const [docDate, setDocDate] = useState(todayIso());
+  const [outcome, setOutcome] = useState("");
+  const [customer, setCustomer] = useState("");
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [parsingId, setParsingId] = useState<string | null>(null);
+
+  const productRequired = PRODUCT_REQUIRED_DATASETS.has(dataset);
+  const pastBidsMode = PAST_BIDS_ONLY_DATASETS.has(dataset);
 
   const fetchDocs = useCallback(async (ds: Dataset) => {
     setLoadingDocs(true);
@@ -67,6 +82,10 @@ export default function KbAdminPage() {
 
   useEffect(() => {
     void fetchDocs(dataset);
+    // Reset metadata that doesn't apply to the new dataset
+    setUploadMsg(null);
+    setOutcome("");
+    setCustomer("");
   }, [dataset, fetchDocs]);
 
   useEffect(() => {
@@ -76,15 +95,32 @@ export default function KbAdminPage() {
     return () => clearInterval(interval);
   }, [docs, dataset, fetchDocs]);
 
+  function validateMetadata(): string | null {
+    if (productRequired && !product) return "Product is required for this dataset.";
+    if (pastBidsMode && !outcome) return "Outcome is required for Past Bids.";
+    if (pastBidsMode && !customer.trim()) return "Customer is required for Past Bids.";
+    return null;
+  }
+
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!file) return;
+
+    const metaError = validateMetadata();
+    if (metaError) { setUploadMsg({ ok: false, text: metaError }); return; }
+
     setUploading(true);
     setUploadMsg(null);
     try {
       const form = new FormData();
       form.append("file", file);
       form.append("dataset", dataset);
+      if (product) form.append("product", product);
+      if (version) form.append("version", version);
+      if (docDate) form.append("date", docDate);
+      if (outcome) form.append("outcome", outcome);
+      if (customer) form.append("customer", customer);
+
       const res = await fetch("/api/kb", { method: "POST", body: form });
       if (res.status === 403) { setUploadMsg({ ok: false, text: "Access denied. Sales Director role required." }); return; }
       const json = await res.json() as { ok?: boolean; error?: string; docId?: string };
@@ -153,7 +189,7 @@ export default function KbAdminPage() {
                   name="dataset"
                   value={value}
                   checked={dataset === value}
-                  onChange={() => { setDataset(value); setUploadMsg(null); }}
+                  onChange={() => { setDataset(value); }}
                   className="accent-indigo-600"
                 />
                 <span className="text-sm">{label}</span>
@@ -173,6 +209,89 @@ export default function KbAdminPage() {
               onChange={(e) => { setFile(e.target.files?.[0] ?? null); setUploadMsg(null); }}
               className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />
+          </div>
+
+          {/* Metadata section */}
+          <div className="border border-gray-100 rounded-lg p-4 bg-gray-50 space-y-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Document Metadata</p>
+
+            {/* Product field — all datasets */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Product{productRequired ? <span className="text-red-500 ml-0.5">*</span> : <span className="text-gray-400 ml-1 text-xs">(optional)</span>}
+              </label>
+              <select
+                value={product}
+                onChange={(e) => setProduct(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                <option value="">— select product —</option>
+                {PRODUCT_SLUGS.map((slug) => (
+                  <option key={slug} value={slug}>{slug}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Version field — all datasets */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Version <span className="text-gray-400 text-xs">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                placeholder="e.g. 2.4.1"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+
+            {/* Date field — all datasets, defaults to today */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Document Date <span className="text-gray-400 text-xs">(optional, defaults to today)</span>
+              </label>
+              <input
+                type="date"
+                value={docDate}
+                onChange={(e) => setDocDate(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+
+            {/* Past Bids only fields */}
+            {pastBidsMode && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Outcome<span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <select
+                    value={outcome}
+                    onChange={(e) => setOutcome(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="">— select outcome —</option>
+                    {OUTCOME_VALUES.map((v) => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer<span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customer}
+                    onChange={(e) => setCustomer(e.target.value)}
+                    placeholder="e.g. Globex Corp"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {uploadMsg && (
