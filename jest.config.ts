@@ -11,6 +11,8 @@ const config: Config = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
+  // Allow tests to resolve packages that live only in the rfp-analyzer service
+  modulePaths: ["<rootDir>/services/rfp-analyzer/node_modules"],
   // jose ships as ESM; allow it to be transformed by next/jest's babel transform
   transformIgnorePatterns: ["/node_modules/(?!(jose)/)"],
 };

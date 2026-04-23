@@ -192,6 +192,8 @@ const graph = new StateGraph(GraphState)
   .addEdge('synthesiseRecommendation', END)
   .compile();
 
+export { retrieveSimilarBids, synthesiseRecommendation };
+
 export async function runAnalysis(input: { pdfUrl?: string; pdfBytes?: Buffer }): Promise<Recommendation> {
   const result = await graph.invoke({
     pdfUrl: input.pdfUrl ?? '',
