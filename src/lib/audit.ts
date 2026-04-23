@@ -4,6 +4,7 @@ export type AuditAction =
   | "rfp.upload"
   | "rfp.view"
   | "rfp.export"
+  | "rfp.override"
   | "kb.create"
   | "kb.update"
   | "kb.archive"
