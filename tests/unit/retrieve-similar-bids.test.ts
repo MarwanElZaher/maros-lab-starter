@@ -96,7 +96,7 @@ describe('retrieve_similar_bids integration', () => {
     // mock.results[0].value is the object returned by the mockImplementation factory,
     // which is what graph.ts stores as `llm`. mock.instances[0] is the constructor `this`
     // (a different, empty object) and does not carry withStructuredOutput.
-    llmInstance = (ChatOpenAI as jest.Mock).mock.results[0].value as typeof llmInstance;
+    llmInstance = (ChatOpenAI as unknown as jest.Mock).mock.results[0].value as typeof llmInstance;
   });
 
   beforeEach(() => {
