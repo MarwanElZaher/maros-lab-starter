@@ -123,7 +123,7 @@ describe('MAR-87 Langfuse standalone tracing', () => {
   it('creates a generation for each LLM call (extractRequirements, detectBlockers, synthesiseRecommendation)', async () => {
     await runAnalysis({ pdfBytes: Buffer.from('fake pdf') });
 
-    const generationNames = mockGeneration.mock.calls.map(([args]: [{ name: string }]) => args.name);
+    const generationNames = (mockGeneration.mock.calls as Array<[{ name: string }]>).map(([args]) => args.name);
     expect(generationNames).toContain('extractRequirements:llm');
     expect(generationNames).toContain('detectBlockers:llm');
     expect(generationNames).toContain('synthesiseRecommendation:llm');

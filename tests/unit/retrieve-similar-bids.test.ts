@@ -93,6 +93,7 @@ const BASE_STATE = {
     hasCriticalBlocker: false,
   } satisfies BlockerAnalysis,
   recommendation: null,
+  _lfTrace: null,
 };
 
 describe('retrieve_similar_bids integration', () => {
