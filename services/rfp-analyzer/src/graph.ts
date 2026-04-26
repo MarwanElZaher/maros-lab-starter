@@ -1,8 +1,8 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
+import { Langfuse } from 'langfuse';
 import axios from 'axios';
 import pdfParse from 'pdf-parse';
-import { CallbackHandler } from 'langfuse-langchain';
 import { retrieveChunks } from './ragflow';
 import {
   RequirementsSchema,
@@ -12,20 +12,6 @@ import {
   type BlockerAnalysis,
   type Recommendation,
 } from './types';
-
-const LANGFUSE_ENABLED =
-  !!(process.env.LANGFUSE_SECRET_KEY && process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_BASE_URL);
-
-function makeLangFuseHandler(traceName: string, metadata?: Record<string, unknown>): CallbackHandler | null {
-  if (!LANGFUSE_ENABLED) return null;
-  return new CallbackHandler({
-    secretKey: process.env.LANGFUSE_SECRET_KEY!,
-    publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
-    baseUrl: process.env.LANGFUSE_BASE_URL!,
-    sessionId: traceName,
-    metadata,
-  });
-}
 
 const PRODUCTS_DATASET = process.env.RAGFLOW_DATASET_PRODUCTS ?? '';
 const PRICING_DATASET = process.env.RAGFLOW_DATASET_PRICING ?? '';
@@ -65,6 +51,9 @@ function sanitizeKb(raw: string, label: string): string {
   return raw;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LfTrace = any;
+
 const GraphState = Annotation.Root({
   pdfUrl: Annotation<string>({ reducer: (_, b) => b, default: () => '' }),
   pdfBytes: Annotation<Buffer | null>({ reducer: (_, b) => b, default: () => null }),
@@ -85,11 +74,14 @@ const GraphState = Annotation.Root({
     reducer: (_, b) => b,
     default: () => null,
   }),
+  _lfTrace: Annotation<LfTrace>({ reducer: (_, b) => b, default: () => null }),
 });
 
 type State = typeof GraphState.State;
 
 export async function extractRequirements(state: State): Promise<Partial<State>> {
+  const span = state._lfTrace?.span({ name: 'extractRequirements', input: { pdfUrl: state.pdfUrl } }) ?? null;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
 
@@ -119,7 +111,7 @@ export async function extractRequirements(state: State): Promise<Partial<State>>
   }
 
   const structured = llmFast.withStructuredOutput(RequirementsSchema, { method: 'functionCalling' });
-  const requirements = await structured.invoke([
+  const messages = [
     {
       role: 'system',
       content:
@@ -130,12 +122,24 @@ export async function extractRequirements(state: State): Promise<Partial<State>>
       role: 'user',
       content: `Extract structured requirements from this RFP:\n\n${pdfText}`,
     },
-  ]);
+  ];
+
+  const generation = state._lfTrace?.generation({
+    name: 'extractRequirements:llm',
+    model: 'anthropic/claude-haiku-4-5',
+    input: messages,
+  }) ?? null;
+
+  const requirements = await structured.invoke(messages);
+  generation?.end({ output: requirements });
+  span?.end({ output: { pdfTextLength: pdfText.length, requirements } });
 
   return { pdfText, requirements };
 }
 
 export async function queryKnowledgeBases(state: State): Promise<Partial<State>> {
+  const span = state._lfTrace?.span({ name: 'queryKnowledgeBases', input: { summary: state.requirements?.summary } }) ?? null;
+
   const query = state.requirements?.summary ?? state.pdfText.slice(0, 500);
   const country = state.requirements?.country ?? null;
 
@@ -151,14 +155,19 @@ export async function queryKnowledgeBases(state: State): Promise<Partial<State>>
     retrieveChunks(`Licensing and entitlements for: ${query}`, LICENSING_DATASET),
   ]);
 
-  return {
+  const result = {
     kbProducts: sanitizeKb(kbProducts, 'products'),
     kbPricing: sanitizeKb(kbPricing, 'pricing'),
     kbLicensing: sanitizeKb(kbLicensing, 'licensing'),
   };
+  span?.end({ output: { kbProductsLength: result.kbProducts.length, kbPricingLength: result.kbPricing.length } });
+
+  return result;
 }
 
 export async function retrieveSimilarBids(state: State): Promise<Partial<State>> {
+  const span = state._lfTrace?.span({ name: 'retrieveSimilarBids', input: { summary: state.requirements?.summary } }) ?? null;
+
   const summary = state.requirements?.summary ?? state.pdfText.slice(0, 500);
   const buyerName = state.requirements?.buyerName ?? '';
 
@@ -171,12 +180,17 @@ export async function retrieveSimilarBids(state: State): Promise<Partial<State>>
     raw = await retrieveChunks(broadQuery, PAST_BIDS_DATASET, 10);
   }
 
-  return { kbPastBids: sanitizeKb(raw, 'past bids') };
+  const kbPastBids = sanitizeKb(raw, 'past bids');
+  span?.end({ output: { kbPastBidsLength: kbPastBids.length } });
+
+  return { kbPastBids };
 }
 
 export async function detectBlockers(state: State): Promise<Partial<State>> {
+  const span = state._lfTrace?.span({ name: 'detectBlockers', input: { requirementCount: state.requirements?.requirements?.length } }) ?? null;
+
   const structured = llm.withStructuredOutput(BlockerAnalysisSchema, { method: 'functionCalling' });
-  const blockerAnalysis = await structured.invoke([
+  const messages = [
     {
       role: 'system',
       content:
@@ -194,14 +208,26 @@ export async function detectBlockers(state: State): Promise<Partial<State>> {
         'Identify blockers where we cannot meet mandatory requirements.',
       ].join('\n\n'),
     },
-  ]);
+  ];
+
+  const generation = state._lfTrace?.generation({
+    name: 'detectBlockers:llm',
+    model: process.env.OPENROUTER_MODEL ?? 'anthropic/claude-sonnet-4-6',
+    input: messages,
+  }) ?? null;
+
+  const blockerAnalysis = await structured.invoke(messages);
+  generation?.end({ output: blockerAnalysis });
+  span?.end({ output: { blockerCount: blockerAnalysis?.blockers?.length, hasCriticalBlocker: blockerAnalysis?.hasCriticalBlocker } });
 
   return { blockerAnalysis };
 }
 
 export async function synthesiseRecommendation(state: State): Promise<Partial<State>> {
+  const span = state._lfTrace?.span({ name: 'synthesiseRecommendation', input: { hasCriticalBlocker: state.blockerAnalysis?.hasCriticalBlocker } }) ?? null;
+
   const structured = llm.withStructuredOutput(RecommendationSchema, { method: 'functionCalling' });
-  const recommendation = await structured.invoke([
+  const messages = [
     {
       role: 'system',
       content:
@@ -221,7 +247,17 @@ export async function synthesiseRecommendation(state: State): Promise<Partial<St
         'Produce the final recommendation. Include 3-5 justifications, all identified red flags with severity, and 2-3 similar bids with outcomes. If datasets are not yet configured, still produce a best-effort recommendation from the RFP text alone.',
       ].join('\n\n'),
     },
-  ]);
+  ];
+
+  const generation = state._lfTrace?.generation({
+    name: 'synthesiseRecommendation:llm',
+    model: process.env.OPENROUTER_MODEL ?? 'anthropic/claude-sonnet-4-6',
+    input: messages,
+  }) ?? null;
+
+  const recommendation = await structured.invoke(messages);
+  generation?.end({ output: recommendation });
+  span?.end({ output: { decision: recommendation?.decision, confidence: recommendation?.confidence } });
 
   return { recommendation };
 }
@@ -243,16 +279,30 @@ const graph = new StateGraph(GraphState)
   .compile();
 
 export async function runAnalysis(input: { pdfUrl?: string; pdfBytes?: Buffer }): Promise<Recommendation> {
-  const traceId = `rfp-${Date.now()}`;
-  const handler = makeLangFuseHandler(traceId, { pdfUrl: input.pdfUrl ?? '(upload)' });
-
-  const invokeConfig = handler ? { callbacks: [handler] } : {};
-  const result = await graph.invoke(
-    { pdfUrl: input.pdfUrl ?? '', pdfBytes: input.pdfBytes ?? null },
-    invokeConfig,
+  const langfuseEnabled = !!(
+    process.env.LANGFUSE_SECRET_KEY &&
+    process.env.LANGFUSE_PUBLIC_KEY &&
+    process.env.LANGFUSE_BASE_URL
   );
 
-  if (handler) await handler.flushAsync();
+  const traceId = `rfp-${Date.now()}`;
+  let lf: Langfuse | null = null;
+  let trace: LfTrace = null;
+
+  if (langfuseEnabled) {
+    lf = new Langfuse({
+      secretKey: process.env.LANGFUSE_SECRET_KEY!,
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
+      baseUrl: process.env.LANGFUSE_BASE_URL!,
+    });
+    trace = lf.trace({ name: traceId, metadata: { pdfUrl: input.pdfUrl ?? '(upload)' } });
+  }
+
+  const result = await graph.invoke(
+    { pdfUrl: input.pdfUrl ?? '', pdfBytes: input.pdfBytes ?? null, _lfTrace: trace },
+  );
+
+  if (lf) await lf.flushAsync();
 
   if (!result.recommendation) {
     throw new Error('Graph completed without producing a recommendation');

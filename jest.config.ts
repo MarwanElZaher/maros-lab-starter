@@ -10,7 +10,6 @@ const config: Config = {
   testMatch: ["<rootDir>/tests/unit/**/*.test.{ts,tsx}"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
-    "^langfuse-langchain$": "<rootDir>/__mocks__/langfuse-langchain.ts",
   },
   // Allow tests to resolve packages that live only in the rfp-analyzer service
   modulePaths: ["<rootDir>/services/rfp-analyzer/node_modules"],

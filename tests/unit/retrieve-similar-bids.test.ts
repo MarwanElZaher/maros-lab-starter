@@ -8,6 +8,13 @@
  *     instruction in the prompt it sends to the LLM
  */
 
+jest.mock('langfuse', () => ({
+  Langfuse: jest.fn().mockImplementation(() => ({
+    trace: jest.fn().mockReturnValue({ span: jest.fn(() => ({ end: jest.fn() })), generation: jest.fn(() => ({ end: jest.fn() })) }),
+    flushAsync: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+
 // Intercept the ragflow client so no real RAGflow calls are made
 jest.mock('../../services/rfp-analyzer/src/ragflow', () => ({
   retrieveChunks: jest.fn(),

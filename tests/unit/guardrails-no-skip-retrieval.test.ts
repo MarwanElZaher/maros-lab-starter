@@ -7,6 +7,13 @@
  * retrieveSimilarBids when hasCriticalBlocker=true.
  */
 
+jest.mock('langfuse', () => ({
+  Langfuse: jest.fn().mockImplementation(() => ({
+    trace: jest.fn().mockReturnValue({ span: jest.fn(() => ({ end: jest.fn() })), generation: jest.fn(() => ({ end: jest.fn() })) }),
+    flushAsync: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+
 jest.mock('../../services/rfp-analyzer/src/ragflow', () => ({
   retrieveChunks: jest.fn(),
 }));
