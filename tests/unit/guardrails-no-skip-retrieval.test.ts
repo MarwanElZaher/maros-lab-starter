@@ -64,6 +64,7 @@ const STATE_WITH_CRITICAL_BLOCKER = {
     hasCriticalBlocker: true,
   } satisfies BlockerAnalysis,
   recommendation: null,
+  _lfTrace: null,
 };
 
 describe('guardrail: retrieveSimilarBids is never skipped (MAR-80)', () => {

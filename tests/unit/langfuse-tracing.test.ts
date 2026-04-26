@@ -106,7 +106,7 @@ describe('MAR-87 Langfuse standalone tracing', () => {
   it('creates a span for each of the 5 LangGraph nodes', async () => {
     await runAnalysis({ pdfBytes: Buffer.from('fake pdf') });
 
-    const nodeNames = mockSpan.mock.calls.map(([args]: [{ name: string }]) => args.name);
+    const nodeNames = (mockSpan.mock.calls as Array<[{ name: string }]>).map(([args]) => args.name);
     expect(nodeNames).toContain('extractRequirements');
     expect(nodeNames).toContain('queryKnowledgeBases');
     expect(nodeNames).toContain('retrieveSimilarBids');
