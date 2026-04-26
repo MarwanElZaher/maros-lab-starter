@@ -10,11 +10,12 @@ const config: Config = {
   testMatch: ["<rootDir>/tests/unit/**/*.test.{ts,tsx}"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "^langfuse-langchain$": "<rootDir>/__mocks__/langfuse-langchain.ts",
   },
   // Allow tests to resolve packages that live only in the rfp-analyzer service
   modulePaths: ["<rootDir>/services/rfp-analyzer/node_modules"],
-  // jose ships as ESM; langfuse-* use dynamic import() which needs babel transform
-  transformIgnorePatterns: ["/node_modules/(?!(jose|langfuse|langfuse-langchain|langfuse-core)/)"],
+  // jose ships as ESM; allow it to be transformed by next/jest's babel transform
+  transformIgnorePatterns: ["/node_modules/(?!(jose)/)"],
 };
 
 export default createJestConfig(config);
