@@ -22,7 +22,7 @@ Each service lives in its own subdirectory under this base.
 | maroslab-copilotkit  | `maros-lab-starter/`                        | `docker/docker-compose.copilotkit.yml`            | `docker/.env`                              |
 | maroslab-rfp-analyzer| `maros-lab-starter/`                        | `docker/docker-compose.rfp-analyzer.yml`          | `docker/.env.rfp-analyzer`                 |
 | maroslab-reminders   | `maros-lab-starter/`                        | `docker/docker-compose.reminders.yml`             | `docker/.env.reminders`                    |
-| maroslab-langfuse    | `maros-lab-starter/`                        | `docker/docker-compose.langfuse.yml`              | `docker/.env.langfuse`                     |
+| maroslab-langfuse    | `maros-lab-starter/`                        | `docker/docker-compose.langfuse.yml`              | `docker/.env.langfuse`                     | image: `langfuse/langfuse:2` (pinned; v3 needs ClickHouse+Redis+S3 — MAR-84) |
 
 **Key rule:** The `maros-lab-starter` stacks are run from the repo clone at  
 `/home/marwanelzaher/ai-company/maros-lab-starter/` — **not** from per-service subdirectories.  

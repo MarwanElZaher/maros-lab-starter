@@ -1,7 +1,9 @@
 version: "3.9"
 name: maroslab-langfuse
 
-# LangFuse v3 self-hosted — LLM observability for rfp-analyzer LangGraph (MAR-82)
+# LangFuse v2 self-hosted — LLM observability for rfp-analyzer LangGraph (MAR-82)
+# Pinned to v2 (MAR-84): v3 requires ClickHouse + Redis + S3; v2 only needs Postgres.
+# Upgrade path: https://langfuse.com/self-hosting/upgrade-guides/upgrade-v2-to-v3
 #
 # Usage:
 #   docker compose -f docker/docker-compose.langfuse.yml --env-file docker/.env.langfuse up -d
@@ -32,7 +34,7 @@ services:
       - n8n_default
 
   langfuse:
-    image: langfuse/langfuse:3
+    image: langfuse/langfuse:2
     restart: unless-stopped
     depends_on:
       langfuse-db:
