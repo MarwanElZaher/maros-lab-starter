@@ -57,6 +57,8 @@ services:
       LANGFUSE_INIT_USER_NAME: admin
       TELEMETRY_ENABLED: "false"
       PORT: "3000"
+      # Bind to all interfaces so the localhost healthcheck below resolves (MAR-85)
+      HOSTNAME: "0.0.0.0"
     networks:
       - n8n_default
     labels:
