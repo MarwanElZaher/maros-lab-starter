@@ -171,13 +171,6 @@ async function synthesiseRecommendation(state: State): Promise<Partial<State>> {
   return { recommendation };
 }
 
-function routeAfterBlockers(state: State): 'retrieveSimilarBids' | 'synthesiseRecommendation' {
-  if (state.blockerAnalysis?.hasCriticalBlocker) {
-    return 'synthesiseRecommendation';
-  }
-  return 'retrieveSimilarBids';
-}
-
 const graph = new StateGraph(GraphState)
   .addNode('extractRequirements', extractRequirements)
   .addNode('queryKnowledgeBases', queryKnowledgeBases)
@@ -187,7 +180,7 @@ const graph = new StateGraph(GraphState)
   .addEdge(START, 'extractRequirements')
   .addEdge('extractRequirements', 'queryKnowledgeBases')
   .addEdge('queryKnowledgeBases', 'detectBlockers')
-  .addConditionalEdges('detectBlockers', routeAfterBlockers)
+  .addEdge('detectBlockers', 'retrieveSimilarBids')
   .addEdge('retrieveSimilarBids', 'synthesiseRecommendation')
   .addEdge('synthesiseRecommendation', END)
   .compile();

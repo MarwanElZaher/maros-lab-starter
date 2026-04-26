@@ -71,6 +71,7 @@ const BASE_STATE = {
   requirements: {
     requirements: ['Cloud infrastructure upgrade', 'Support for modules C and D'],
     buyerName: 'Globex Corp',
+    country: null,
     deadline: '2026-07-01',
     budget: '$600,000',
     summary: 'Cloud infrastructure upgrade for Globex Corp focusing on modules C and D',

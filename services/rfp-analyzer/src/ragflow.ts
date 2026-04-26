@@ -19,6 +19,7 @@ export async function retrieveChunks(
   question: string,
   datasetId: string,
   topK = 5,
+  filters?: Record<string, string>,
 ): Promise<string> {
   if (!datasetId) {
     return '[dataset not yet configured — pending MAR-17]';
@@ -28,9 +29,18 @@ export async function retrieveChunks(
   const timeout = setTimeout(() => controller.abort(), 30_000);
 
   try {
+    const body: Record<string, unknown> = {
+      question,
+      dataset_ids: [datasetId],
+      top_k: topK,
+    };
+    if (filters && Object.keys(filters).length > 0) {
+      body.filters = filters;
+    }
+
     const resp = await axios.post<RetrievalResponse>(
       `${BASE_URL}/api/v1/retrieval`,
-      { question, dataset_ids: [datasetId], top_k: topK },
+      body,
       {
         headers: { Authorization: `Bearer ${API_KEY}` },
         signal: controller.signal as never,
