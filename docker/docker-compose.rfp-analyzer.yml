@@ -38,6 +38,10 @@ services:
       RAGFLOW_DATASET_PAST_BIDS: ${RAGFLOW_DATASET_PAST_BIDS:-}
       RAGFLOW_DATASET_LICENSING: ${RAGFLOW_DATASET_LICENSING:-}
       RAGFLOW_DATASET_USER_GUIDES: ${RAGFLOW_DATASET_USER_GUIDES:-}
+      # LangFuse tracing (MAR-82) — leave empty to disable tracing
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
     networks:
       - n8n_default
     healthcheck:

@@ -22,6 +22,7 @@ Each service lives in its own subdirectory under this base.
 | maroslab-copilotkit  | `maros-lab-starter/`                        | `docker/docker-compose.copilotkit.yml`            | `docker/.env`                              |
 | maroslab-rfp-analyzer| `maros-lab-starter/`                        | `docker/docker-compose.rfp-analyzer.yml`          | `docker/.env.rfp-analyzer`                 |
 | maroslab-reminders   | `maros-lab-starter/`                        | `docker/docker-compose.reminders.yml`             | `docker/.env.reminders`                    |
+| maroslab-langfuse    | `maros-lab-starter/`                        | `docker/docker-compose.langfuse.yml`              | `docker/.env.langfuse`                     |
 
 **Key rule:** The `maros-lab-starter` stacks are run from the repo clone at  
 `/home/marwanelzaher/ai-company/maros-lab-starter/` — **not** from per-service subdirectories.  
@@ -35,6 +36,7 @@ The env file for each stack lives alongside its compose file inside `docker/`, n
 | `docker/docker-compose.copilotkit.yml`    | `copilotkit`, `postgres`    |
 | `docker/docker-compose.rfp-analyzer.yml`  | `rfp-analyzer`              |
 | `docker/docker-compose.reminders.yml`     | `waha`, `cloudflared-reminders` |
+| `docker/docker-compose.langfuse.yml`      | `langfuse`, `langfuse-db`   |
 
 ## Network topology
 
@@ -60,6 +62,9 @@ docker compose -f docker/docker-compose.rfp-analyzer.yml --env-file docker/.env.
 
 # maroslab-app (root compose)
 docker compose -f docker-compose.prod.yml up -d --force-recreate app
+
+# langfuse (first deploy; run once after creating docker/.env.langfuse)
+docker compose -f docker/docker-compose.langfuse.yml --env-file docker/.env.langfuse up -d
 ```
 
 ## Ops script checklist

@@ -2,6 +2,7 @@ import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 import axios from 'axios';
 import pdfParse from 'pdf-parse';
+import { CallbackHandler } from 'langfuse-langchain';
 import { retrieveChunks } from './ragflow';
 import {
   RequirementsSchema,
@@ -11,6 +12,20 @@ import {
   type BlockerAnalysis,
   type Recommendation,
 } from './types';
+
+const LANGFUSE_ENABLED =
+  !!(process.env.LANGFUSE_SECRET_KEY && process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_BASE_URL);
+
+function makeLangFuseHandler(traceName: string, metadata?: Record<string, unknown>): CallbackHandler | null {
+  if (!LANGFUSE_ENABLED) return null;
+  return new CallbackHandler({
+    secretKey: process.env.LANGFUSE_SECRET_KEY!,
+    publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
+    baseUrl: process.env.LANGFUSE_BASE_URL!,
+    sessionId: traceName,
+    metadata,
+  });
+}
 
 const PRODUCTS_DATASET = process.env.RAGFLOW_DATASET_PRODUCTS ?? '';
 const PRICING_DATASET = process.env.RAGFLOW_DATASET_PRICING ?? '';
@@ -228,10 +243,17 @@ const graph = new StateGraph(GraphState)
   .compile();
 
 export async function runAnalysis(input: { pdfUrl?: string; pdfBytes?: Buffer }): Promise<Recommendation> {
-  const result = await graph.invoke({
-    pdfUrl: input.pdfUrl ?? '',
-    pdfBytes: input.pdfBytes ?? null,
-  });
+  const traceId = `rfp-${Date.now()}`;
+  const handler = makeLangFuseHandler(traceId, { pdfUrl: input.pdfUrl ?? '(upload)' });
+
+  const invokeConfig = handler ? { callbacks: [handler] } : {};
+  const result = await graph.invoke(
+    { pdfUrl: input.pdfUrl ?? '', pdfBytes: input.pdfBytes ?? null },
+    invokeConfig,
+  );
+
+  if (handler) await handler.flushAsync();
+
   if (!result.recommendation) {
     throw new Error('Graph completed without producing a recommendation');
   }

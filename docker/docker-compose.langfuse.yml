@@ -1,0 +1,80 @@
+version: "3.9"
+name: maroslab-langfuse
+
+# LangFuse v3 self-hosted — LLM observability for rfp-analyzer LangGraph (MAR-82)
+#
+# Usage:
+#   docker compose -f docker/docker-compose.langfuse.yml --env-file docker/.env.langfuse up -d
+#
+# Required env vars (copy from docker/.env.langfuse.example):
+#   LANGFUSE_DATABASE_PASSWORD, LANGFUSE_NEXTAUTH_SECRET, LANGFUSE_SALT,
+#   LANGFUSE_ENCRYPTION_KEY, LANGFUSE_INIT_USER_EMAIL, LANGFUSE_INIT_USER_PASSWORD
+#
+# Public UI: https://langfuse.marwanelzaher.info  (Traefik + Cloudflare Tunnel)
+# Internal SDK endpoint: http://langfuse:3000  (docker DNS, used by rfp-analyzer)
+
+services:
+  langfuse-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: ${LANGFUSE_DATABASE_PASSWORD}
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - n8n_default
+
+  langfuse:
+    image: langfuse/langfuse:3
+    restart: unless-stopped
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://langfuse:${LANGFUSE_DATABASE_PASSWORD}@langfuse-db:5432/langfuse
+      NEXTAUTH_URL: https://langfuse.marwanelzaher.info
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+      # Auto-create initial admin user on first boot
+      LANGFUSE_INIT_ORG_ID: maros-lab
+      LANGFUSE_INIT_ORG_NAME: "Maro's LAB"
+      LANGFUSE_INIT_PROJECT_ID: rfp-analyzer
+      LANGFUSE_INIT_PROJECT_NAME: rfp-analyzer
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD}
+      LANGFUSE_INIT_USER_NAME: admin
+      TELEMETRY_ENABLED: "false"
+      PORT: "3000"
+    networks:
+      - n8n_default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.langfuse.rule=Host(`langfuse.marwanelzaher.info`)
+      - traefik.http.routers.langfuse.entrypoints=web,websecure
+      - traefik.http.routers.langfuse.tls=true
+      - traefik.http.routers.langfuse.tls.certresolver=mytlschallenge
+      - traefik.http.services.langfuse.loadbalancer.server.port=3000
+      - traefik.docker.network=n8n_default
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/public/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  langfuse_db_data:
+
+networks:
+  n8n_default:
+    external: true
