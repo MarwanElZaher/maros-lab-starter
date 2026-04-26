@@ -94,10 +94,12 @@ describe('retrieve_similar_bids integration', () => {
   let llmInstance: { withStructuredOutput: jest.Mock };
 
   beforeAll(() => {
-    // mock.results[0].value is the object returned by the mockImplementation factory,
-    // which is what graph.ts stores as `llm`. mock.instances[0] is the constructor `this`
-    // (a different, empty object) and does not carry withStructuredOutput.
-    llmInstance = (ChatOpenAI as unknown as jest.Mock).mock.results[0].value as typeof llmInstance;
+    // graph.ts creates llmFast (index 0 / haiku) then llm (index 1 / sonnet).
+    // synthesiseRecommendation uses llm (sonnet), so capture index 1.
+    // mock.results[N].value is the object returned by mockImplementation, which is what
+    // graph.ts stores as the llm variable. mock.instances[N] is the bare `this` context
+    // and does not carry withStructuredOutput.
+    llmInstance = (ChatOpenAI as unknown as jest.Mock).mock.results[1].value as typeof llmInstance;
   });
 
   beforeEach(() => {
@@ -126,7 +128,8 @@ describe('retrieve_similar_bids integration', () => {
       expect(mockRetrieveChunks).toHaveBeenCalledWith(
         expect.stringContaining('Globex Corp'),
         expect.any(String),
-        5,
+        10,
+        expect.objectContaining({ outcome: 'won' }),
       );
       expect(result.kbPastBids).toContain('go_scoped');
       expect(result.kbPastBids).toContain('Human Override');
@@ -142,12 +145,14 @@ describe('retrieve_similar_bids integration', () => {
       expect(query).toContain('modules C and D');
     });
 
-    it('returns the retrieval result gracefully when the dataset is not configured', async () => {
+    it('returns a safe placeholder when the dataset is not configured (sentinel sanitised)', async () => {
       mockRetrieveChunks.mockResolvedValue('[dataset not yet configured — pending MAR-17]');
 
       const result = await retrieveSimilarBids(BASE_STATE);
 
-      expect(result.kbPastBids).toContain('dataset not yet configured');
+      // Sentinel strings are sanitised before reaching the LLM — raw sentinel must not leak
+      expect(result.kbPastBids).not.toContain('dataset not yet configured');
+      expect(result.kbPastBids).toContain('no data retrieved');
     });
   });
 

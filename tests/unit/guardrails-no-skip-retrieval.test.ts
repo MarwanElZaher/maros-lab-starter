@@ -63,7 +63,9 @@ describe('guardrail: retrieveSimilarBids is never skipped (MAR-80)', () => {
   let llmInstance: { withStructuredOutput: jest.Mock };
 
   beforeAll(() => {
-    llmInstance = (ChatOpenAI as unknown as jest.Mock).mock.results[0].value as typeof llmInstance;
+    // graph.ts creates llmFast (index 0 / haiku) then llm (index 1 / sonnet).
+    // synthesiseRecommendation uses llm (index 1), so capture that.
+    llmInstance = (ChatOpenAI as unknown as jest.Mock).mock.results[1].value as typeof llmInstance;
   });
 
   beforeEach(() => {
@@ -104,14 +106,15 @@ describe('guardrail: retrieveSimilarBids is never skipped (MAR-80)', () => {
     expect(userContent).toContain('PRECEDENT RULE');
   });
 
-  it('sentinel error strings from retrieval are never used as real context', async () => {
+  it('sentinel error strings are sanitized and never forwarded raw to the LLM', async () => {
     mockRetrieveChunks.mockResolvedValue('[dataset not yet configured — pending MAR-17]');
 
     const result = await retrieveSimilarBids(STATE_WITH_CRITICAL_BLOCKER);
 
-    // The node must still run; the caller (synthesis) is responsible for detecting
-    // and replacing sentinel strings before forwarding them to the LLM.
+    // retrieval always runs (1 or 2 calls due to fallback logic); kbPastBids must
+    // be a sanitized string — never the raw sentinel text.
     expect(result.kbPastBids).toBeDefined();
-    expect(mockRetrieveChunks).toHaveBeenCalledTimes(1);
+    expect(result.kbPastBids).not.toMatch(/^\[dataset not yet configured/);
+    expect(mockRetrieveChunks).toHaveBeenCalled();
   });
 });

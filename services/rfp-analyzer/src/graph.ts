@@ -17,8 +17,7 @@ const PRICING_DATASET = process.env.RAGFLOW_DATASET_PRICING ?? '';
 const PAST_BIDS_DATASET = process.env.RAGFLOW_DATASET_PAST_BIDS ?? '';
 const LICENSING_DATASET = process.env.RAGFLOW_DATASET_LICENSING ?? '';
 
-const llm = new ChatOpenAI({
-  modelName: process.env.OPENROUTER_MODEL ?? 'anthropic/claude-haiku-4-5',
+const OPENROUTER_CONFIG = {
   openAIApiKey: process.env.OPENROUTER_API_KEY,
   configuration: {
     baseURL: 'https://openrouter.ai/api/v1',
@@ -28,7 +27,28 @@ const llm = new ChatOpenAI({
     },
   },
   temperature: 0,
+};
+
+// Haiku for cheap structured extraction; sonnet-4-6 minimum for binding go/no-go decisions
+const llmFast = new ChatOpenAI({
+  modelName: 'anthropic/claude-haiku-4-5',
+  ...OPENROUTER_CONFIG,
 });
+
+const llm = new ChatOpenAI({
+  modelName: process.env.OPENROUTER_MODEL ?? 'anthropic/claude-sonnet-4-6',
+  ...OPENROUTER_CONFIG,
+});
+
+// Matches sentinel strings returned by ragflow.ts when a dataset is unconfigured or empty
+const SENTINEL_RE = /^\[(?:dataset not yet configured|no results:|retrieval error:)/;
+
+function sanitizeKb(raw: string, label: string): string {
+  if (SENTINEL_RE.test(raw)) {
+    return `[${label}: no data retrieved — treat as missing context, not evidence of absence]`;
+  }
+  return raw;
+}
 
 const GraphState = Annotation.Root({
   pdfUrl: Annotation<string>({ reducer: (_, b) => b, default: () => '' }),
@@ -54,7 +74,7 @@ const GraphState = Annotation.Root({
 
 type State = typeof GraphState.State;
 
-async function extractRequirements(state: State): Promise<Partial<State>> {
+export async function extractRequirements(state: State): Promise<Partial<State>> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
 
@@ -74,7 +94,8 @@ async function extractRequirements(state: State): Promise<Partial<State>> {
       throw new Error('neither pdfBytes nor pdfUrl provided');
     }
     const parsed = await pdfParse(bytes);
-    pdfText = parsed.text.slice(0, 40_000);
+    // 120 000 chars covers bilingual (Arabic + English) RFPs without truncating mandatory clauses
+    pdfText = parsed.text.slice(0, 120_000);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`PDF extraction failed: ${msg}`);
@@ -82,12 +103,13 @@ async function extractRequirements(state: State): Promise<Partial<State>> {
     clearTimeout(timeout);
   }
 
-  const structured = llm.withStructuredOutput(RequirementsSchema, { method: 'functionCalling' });
+  const structured = llmFast.withStructuredOutput(RequirementsSchema, { method: 'functionCalling' });
   const requirements = await structured.invoke([
     {
       role: 'system',
       content:
-        'You are a presales analyst. Extract the key procurement requirements from this RFP document. Be precise and complete.',
+        'You are a presales analyst. Extract the key procurement requirements from this RFP document. ' +
+        'Be precise and complete. For country, extract the buyer\'s country code (e.g. "KSA", "EG", "AE"); null if not determinable.',
     },
     {
       role: 'user',
@@ -98,20 +120,46 @@ async function extractRequirements(state: State): Promise<Partial<State>> {
   return { pdfText, requirements };
 }
 
-async function queryKnowledgeBases(state: State): Promise<Partial<State>> {
+export async function queryKnowledgeBases(state: State): Promise<Partial<State>> {
   const query = state.requirements?.summary ?? state.pdfText.slice(0, 500);
+  const country = state.requirements?.country ?? null;
 
-  const [kbProducts, kbPricing, kbPastBids, kbLicensing] = await Promise.all([
+  // Country in both the query string and metadata filter for geo-accurate pricing
+  const pricingQuery = country
+    ? `Pricing and discounts for: ${query} country: ${country}`
+    : `Pricing and discounts for: ${query}`;
+  const pricingFilters = country ? { country } : undefined;
+
+  const [kbProducts, kbPricing, kbLicensing] = await Promise.all([
     retrieveChunks(`Products matching: ${query}`, PRODUCTS_DATASET),
-    retrieveChunks(`Pricing and discounts for: ${query}`, PRICING_DATASET),
-    retrieveChunks(`Similar past bids: ${query}`, PAST_BIDS_DATASET, 5),
+    retrieveChunks(pricingQuery, PRICING_DATASET, 5, pricingFilters),
     retrieveChunks(`Licensing and entitlements for: ${query}`, LICENSING_DATASET),
   ]);
 
-  return { kbProducts, kbPricing, kbPastBids, kbLicensing };
+  return {
+    kbProducts: sanitizeKb(kbProducts, 'products'),
+    kbPricing: sanitizeKb(kbPricing, 'pricing'),
+    kbLicensing: sanitizeKb(kbLicensing, 'licensing'),
+  };
 }
 
-async function detectBlockers(state: State): Promise<Partial<State>> {
+export async function retrieveSimilarBids(state: State): Promise<Partial<State>> {
+  const summary = state.requirements?.summary ?? state.pdfText.slice(0, 500);
+  const buyerName = state.requirements?.buyerName ?? '';
+
+  // Priority: won bids via metadata filter (maximum positive-precedent recall).
+  // Fall back to broad embedding search if metadata filter returns nothing.
+  const wonQuery = `Similar won bids: ${summary} buyer: ${buyerName}`;
+  let raw = await retrieveChunks(wonQuery, PAST_BIDS_DATASET, 10, { outcome: 'won' });
+  if (SENTINEL_RE.test(raw)) {
+    const broadQuery = `Bids similar to: ${summary} buyer: ${buyerName}`;
+    raw = await retrieveChunks(broadQuery, PAST_BIDS_DATASET, 10);
+  }
+
+  return { kbPastBids: sanitizeKb(raw, 'past bids') };
+}
+
+export async function detectBlockers(state: State): Promise<Partial<State>> {
   const structured = llm.withStructuredOutput(BlockerAnalysisSchema, { method: 'functionCalling' });
   const blockerAnalysis = await structured.invoke([
     {
@@ -125,7 +173,9 @@ async function detectBlockers(state: State): Promise<Partial<State>> {
         `RFP Requirements:\n${JSON.stringify(state.requirements, null, 2)}`,
         `Our Products:\n${state.kbProducts}`,
         `Our Pricing:\n${state.kbPricing}`,
-        `Also check for entitlement mismatches using the Licensing context below:\nan entitlement mismatch is when the RFP requires a product feature, the product\nbrochure confirms it exists, but the licensing rules restrict it to a specific\nedition or tier that the customer is unlikely to hold (based on budget or stated\nscope). List each mismatch with the feature name, required edition, and estimated\ncustomer edition (or null if unknown).\n\nLicensing context:\n${state.kbLicensing}`,
+        `Past Similar Bids (WON precedent — if a won bid matches this RFP scope, treat that as mitigating evidence against blockers):\n${state.kbPastBids}`,
+        `Licensing context (apply ONLY to the specific product line named in each chunk — do not use a licensing rule for product X to block product Y; cross-product licensing rules are not applicable):\n${state.kbLicensing}`,
+        `An entitlement mismatch applies only when the RFP requires a feature that the licensing doc restricts to a specific edition for the SAME product SKU. List each mismatch with: feature name, required edition, estimated customer edition (or null if unknown).`,
         'Identify blockers where we cannot meet mandatory requirements.',
       ].join('\n\n'),
     },
@@ -134,17 +184,7 @@ async function detectBlockers(state: State): Promise<Partial<State>> {
   return { blockerAnalysis };
 }
 
-async function retrieveSimilarBids(state: State): Promise<Partial<State>> {
-  const query = state.requirements?.summary ?? '';
-  const kbPastBids = await retrieveChunks(
-    `Bids similar to: ${query} buyer: ${state.requirements?.buyerName ?? ''}`,
-    PAST_BIDS_DATASET,
-    5,
-  );
-  return { kbPastBids };
-}
-
-async function synthesiseRecommendation(state: State): Promise<Partial<State>> {
+export async function synthesiseRecommendation(state: State): Promise<Partial<State>> {
   const structured = llm.withStructuredOutput(RecommendationSchema, { method: 'functionCalling' });
   const recommendation = await structured.invoke([
     {
@@ -159,9 +199,9 @@ async function synthesiseRecommendation(state: State): Promise<Partial<State>> {
         `Our Products:\n${state.kbProducts}`,
         `Our Pricing:\n${state.kbPricing}`,
         `Past Similar Bids:\n${state.kbPastBids}`,
-        `Licensing (AUTHORITATIVE over Products for edition/entitlement claims):\n${state.kbLicensing}`,
-        `IMPORTANT: If kbLicensing contains edition or entitlement constraints that narrow or\ncontradict a claim in kbProducts (e.g. "Feature X is available in Enterprise edition\nonly"), treat the licensing constraint as authoritative. Do not cite the product\nbrochure claim as evidence the RFP can be met if the licensing doc says otherwise.`,
+        `Licensing (apply per-product — only authoritative for the specific product line named in each chunk; do not apply cross-product licensing constraints):\n${state.kbLicensing}`,
         `Blocker Analysis:\n${JSON.stringify(state.blockerAnalysis, null, 2)}`,
+        `WON-PRECEDENT RULE: If Past Similar Bids contains any bid with outcome=won whose buyer name or technical scope overlaps this RFP, that is strong positive evidence to bid GO or CONDITIONAL GO. You MUST NOT return NO-GO if a relevant won precedent exists, unless the blockers are completely unrelated to the won-bid scope AND are unambiguous and unresolvable. In that case, downgrade to CONDITIONAL GO and clearly explain why the precedent does not apply.`,
         `PRECEDENT RULE: Scan the Past Similar Bids context above for any document that records\na human override where the team chose go_scoped or go_full despite a NO-GO or\nCONDITIONAL-GO analyzer verdict. If one or more such precedents exist, you MUST:\n1. Add a "Precedent" subsection to the recommendation text that lists each cited past-bid\n   document and its override rationale.\n2. Explicitly ask: "Could a scoped bid approach work here as it did in [cited case]?"\n3. Adjust the confidence: a NO-GO verdict that has a relevant go_scoped precedent MUST be\n   downgraded to CONDITIONAL-GO unless you can state a strong differentiating reason why\n   that precedent does not apply.`,
         'Produce the final recommendation. Include 3-5 justifications, all identified red flags with severity, and 2-3 similar bids with outcomes. If datasets are not yet configured, still produce a best-effort recommendation from the RFP text alone.',
       ].join('\n\n'),
@@ -171,21 +211,21 @@ async function synthesiseRecommendation(state: State): Promise<Partial<State>> {
   return { recommendation };
 }
 
+// Flow: extractRequirements → queryKnowledgeBases → retrieveSimilarBids → detectBlockers → synthesiseRecommendation
+// retrieveSimilarBids always runs BEFORE synthesis — the conditional skip on hasCriticalBlocker is gone.
 const graph = new StateGraph(GraphState)
   .addNode('extractRequirements', extractRequirements)
   .addNode('queryKnowledgeBases', queryKnowledgeBases)
-  .addNode('detectBlockers', detectBlockers)
   .addNode('retrieveSimilarBids', retrieveSimilarBids)
+  .addNode('detectBlockers', detectBlockers)
   .addNode('synthesiseRecommendation', synthesiseRecommendation)
   .addEdge(START, 'extractRequirements')
   .addEdge('extractRequirements', 'queryKnowledgeBases')
-  .addEdge('queryKnowledgeBases', 'detectBlockers')
-  .addEdge('detectBlockers', 'retrieveSimilarBids')
-  .addEdge('retrieveSimilarBids', 'synthesiseRecommendation')
+  .addEdge('queryKnowledgeBases', 'retrieveSimilarBids')
+  .addEdge('retrieveSimilarBids', 'detectBlockers')
+  .addEdge('detectBlockers', 'synthesiseRecommendation')
   .addEdge('synthesiseRecommendation', END)
   .compile();
-
-export { retrieveSimilarBids, synthesiseRecommendation };
 
 export async function runAnalysis(input: { pdfUrl?: string; pdfBytes?: Buffer }): Promise<Recommendation> {
   const result = await graph.invoke({
