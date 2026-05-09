@@ -10,9 +10,10 @@ from pathlib import Path
 
 import yaml
 
-# Add app root to path
+# Add the parent of app/ to sys.path so `from app.xxx` imports resolve
+# (REPO_ROOT = .../pwc-rag-task/app; its parent contains the `app` package)
 REPO_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT.parent))
 
 GOLDEN_PATH = Path(__file__).parent / "golden.yaml"
 DATA_DIR = Path(os.environ.get("DATA_DIR", str(REPO_ROOT / "data")))

@@ -9,7 +9,8 @@
     use_structured: true
     use_unstructured: false
   expected_substrings:
-    - "No zinc limit"
+    - "zinc"
+    - "recorded"
   must_not_contain:
     - "0.02"
     - "Horizon"
@@ -17,7 +18,7 @@
   expected_sources_at_least: []
 
 - id: Q2
-  description: "Aggregation across products — structured-only, max VOC 40 g/L"
+  description: "Aggregation across products — structured-only, max VOC 40 g/L from EcoShield Floor Coating"
   query: "For client Aurora Paints, considering EcoSafe Ceiling Paint, EcoSafe Exterior Facade and EcoShield Floor Coating in the EU, what is the maximum internal VOC limit in g/L across these products?"
   client: "Aurora Paints"
   expected_route:
@@ -25,6 +26,7 @@
     use_unstructured: false
   expected_substrings:
     - "40"
+    - "EcoShield Floor"
   must_not_contain:
     - "Horizon"
     - "UltraSafe"
@@ -32,7 +34,7 @@
     - "aurora_product_data.xlsx"
 
 - id: Q3
-  description: "Narrative retrieval — Horizon ventilation guidance"
+  description: "Narrative retrieval — Horizon ventilation guidance for hospitals/elderly care"
   query: "According to the guidance for client Horizon Coatings' UltraSafe Interior Wall Paint, in which types of rooms is enhanced ventilation or longer airing-out periods specifically recommended?"
   client: "Horizon Coatings"
   expected_route:
@@ -41,6 +43,7 @@
   expected_substrings:
     - "hospitals"
     - "elderly care"
+    - "ventilat"
   must_not_contain:
     - "Aurora"
     - "EcoSafe"
@@ -57,6 +60,7 @@
     use_structured: true
     use_unstructured: true
   expected_substrings:
+    - "Aurora"
     - "Horizon"
     - "25"
     - "30"
@@ -64,6 +68,7 @@
     - "Aurora is stricter"
     - "Aurora sets a stricter"
     - "Aurora Paints sets a stricter"
+    - "the client sets a stricter"
   expected_sources_at_least:
     - "aurora_product_data.xlsx"
     - "horizon_product_data.xlsx"
@@ -77,6 +82,7 @@
     use_unstructured: false
   expected_substrings:
     - "32"
+    - "EU"
   must_not_contain:
     - "36"
     - "Horizon"

@@ -31,7 +31,8 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".."]
+include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

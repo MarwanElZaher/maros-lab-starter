@@ -15,8 +15,17 @@ logger = logging.getLogger(__name__)
 def _fmt_structured(rows: list[dict], client: str) -> str:
     if not rows:
         return f"No structured spec data found for {client}."
-    lines = [f"[{client} specs]"]
+    # Deduplicate by (product, region, parameter, value, unit) to avoid flooding
+    # the LLM with identical rows that occur when the xlsx has repeated entries.
+    seen: set = set()
+    unique: list[dict] = []
     for r in rows:
+        key = (r.get("product"), r.get("region"), r.get("parameter"), r.get("value"), r.get("unit"))
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    lines = [f"[{client} specs — {len(unique)} unique rows]"]
+    for r in unique:
         lines.append(
             f"  product={r.get('product')} region={r.get('region')} "
             f"param={r.get('parameter')} value={r.get('value')} {r.get('unit')} "
