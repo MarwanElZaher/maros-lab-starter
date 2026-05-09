@@ -1,0 +1,85 @@
+# Golden evaluation set — 5 demo queries from SPEC.md §4
+# Each entry drives one row in the eval table produced by eval/run.py
+
+- id: Q1
+  description: "Trick/isolation test — Aurora has no zinc data; must not leak Horizon zinc value"
+  query: "For client Aurora Paints, what is the maximum zinc content allowed in the finished EcoSafe Interior Wall Paint for the EU?"
+  client: "Aurora Paints"
+  expected_route:
+    use_structured: true
+    use_unstructured: false
+  expected_substrings:
+    - "No zinc limit"
+  must_not_contain:
+    - "0.02"
+    - "Horizon"
+    - "UltraSafe"
+  expected_sources_at_least: []
+
+- id: Q2
+  description: "Aggregation across products — structured-only, max VOC 40 g/L"
+  query: "For client Aurora Paints, considering EcoSafe Ceiling Paint, EcoSafe Exterior Facade and EcoShield Floor Coating in the EU, what is the maximum internal VOC limit in g/L across these products?"
+  client: "Aurora Paints"
+  expected_route:
+    use_structured: true
+    use_unstructured: false
+  expected_substrings:
+    - "40"
+  must_not_contain:
+    - "Horizon"
+    - "UltraSafe"
+  expected_sources_at_least:
+    - "aurora_product_data.xlsx"
+
+- id: Q3
+  description: "Narrative retrieval — Horizon ventilation guidance"
+  query: "According to the guidance for client Horizon Coatings' UltraSafe Interior Wall Paint, in which types of rooms is enhanced ventilation or longer airing-out periods specifically recommended?"
+  client: "Horizon Coatings"
+  expected_route:
+    use_structured: false
+    use_unstructured: true
+  expected_substrings:
+    - "hospitals"
+    - "elderly care"
+  must_not_contain:
+    - "Aurora"
+    - "EcoSafe"
+  expected_sources_at_least:
+    - "horizon_product_brief.docx"
+
+- id: Q4
+  description: "Comparison + multi-store — Horizon stricter VOC (25 g/L) vs Aurora (30 g/L)"
+  query: "Comparing client Aurora Paints and client Horizon Coatings, which client sets a stricter VOC limit for interior wall paint in the EU, and what additional usage guidance is mentioned for sensitive environments across their products?"
+  clients:
+    - "Aurora Paints"
+    - "Horizon Coatings"
+  expected_route:
+    use_structured: true
+    use_unstructured: true
+  expected_substrings:
+    - "Horizon"
+    - "25"
+    - "30"
+  must_not_contain:
+    - "Aurora is stricter"
+    - "Aurora sets a stricter"
+    - "Aurora Paints sets a stricter"
+  expected_sources_at_least:
+    - "aurora_product_data.xlsx"
+    - "horizon_product_data.xlsx"
+
+- id: Q5
+  description: "Narrative-vs-structured divergence — docx 32 g/L beats xlsx 36 g/L for EU residential"
+  query: "For client Aurora Paints, what internal VOC limit in g/L is set for EcoSafe Kitchen & Bath in the EU for typical residential projects?"
+  client: "Aurora Paints"
+  expected_route:
+    use_structured: true
+    use_unstructured: false
+  expected_substrings:
+    - "32"
+  must_not_contain:
+    - "36"
+    - "Horizon"
+    - "UltraSafe"
+  expected_sources_at_least:
+    - "aurora_product_brief.docx"

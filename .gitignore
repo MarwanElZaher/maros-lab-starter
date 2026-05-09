@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Data (large binary files — re-generate via make ingest)
+app/data/structured.duckdb
+app/data/specs.duckdb
+app/data/chroma/
+
+# LLM disk cache — optional to commit; regenerated on first run
+# app/data/llm_cache.json
+
+# Env
+.env
+.env.*
+
+# Misc
+.pytest_cache/
+*.log
