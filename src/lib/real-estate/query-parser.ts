@@ -11,10 +11,17 @@ export interface SearchParams {
   priceMax?: number;
 }
 
-const client = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+let _client: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (!_client) {
+    _client = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
+  }
+  return _client;
+}
 
 const SYSTEM_PROMPT = `You parse Arabic and English real estate search queries into structured JSON.
 Return ONLY valid JSON with these keys:
@@ -31,7 +38,7 @@ Examples:
 Interpret Arabic room counts: 1 غرفة≈40-60m², 2 غرف≈60-90m², 3 غرف≈80-130m², 4 غرف≈120-180m².`;
 
 export async function parseArabicQuery(query: string): Promise<SearchParams> {
-  const response = await client.chat.completions.create({
+  const response = await getClient().chat.completions.create({
     model: 'anthropic/claude-sonnet-4-6',
     max_tokens: 256,
     messages: [
