@@ -10,6 +10,27 @@ env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/engagement_test
 
 jobs:
+  lock-drift:
+    name: Check per-service lock drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify rfp-analyzer package-lock.json is up to date
+        run: |
+          TMPDIR=$(mktemp -d)
+          cp services/rfp-analyzer/package.json "$TMPDIR/"
+          cd "$TMPDIR"
+          npm install --package-lock-only --silent
+          if ! diff -q package-lock.json "$GITHUB_WORKSPACE/services/rfp-analyzer/package-lock.json" > /dev/null 2>&1; then
+            echo "ERROR: services/rfp-analyzer/package-lock.json is out of sync with package.json"
+            echo "Run: cd services/rfp-analyzer && npm install --package-lock-only (from outside the workspace)"
+            exit 1
+          fi
+          echo "OK: services/rfp-analyzer/package-lock.json is in sync"
+
   check:
     name: Type-check, lint, test
     runs-on: ubuntu-latest
