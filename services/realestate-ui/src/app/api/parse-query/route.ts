@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const client = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: 'https://openrouter.ai/api/v1',
-});
+function getClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: 'https://openrouter.ai/api/v1',
+  });
+}
+
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
+  const client = getClient();
   const { query } = await req.json();
   if (!query) return NextResponse.json({ error: 'query required' }, { status: 400 });
 
