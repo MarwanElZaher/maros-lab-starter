@@ -70,7 +70,7 @@ services:
       - traefik.http.services.langfuse.loadbalancer.server.port=3000
       - traefik.docker.network=n8n_default
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/public/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://$(hostname):3000/api/public/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
