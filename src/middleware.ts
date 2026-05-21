@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-// Routes that require Cloudflare Access JWT auth
+const REALESTATE_HOST = "realestate.marwanelzaher.info";
+
+// Routes that require Cloudflare Access JWT auth, plus "/" for host-aware rewrite
 export const config = {
   matcher: [
+    "/",
     "/api/audit/:path*",
     "/api/rfp/:path*",
     "/api/kb/:path*",
@@ -17,6 +20,20 @@ const CF_TEAM_DOMAIN = process.env.CF_ACCESS_TEAM_DOMAIN;
 const CF_ACCESS_AUD = process.env.CF_ACCESS_AUD;
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
+  const host = req.headers.get("host") ?? "";
+
+  // Host-aware rewrite: serve real-estate UI at / for the realestate subdomain
+  if (req.nextUrl.pathname === "/" && host === REALESTATE_HOST) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/re-root";
+    return NextResponse.rewrite(url);
+  }
+
+  // Root "/" on non-real-estate hosts needs no auth — pass through
+  if (req.nextUrl.pathname === "/") {
+    return NextResponse.next();
+  }
+
   // Dev bypass: if CF not configured, forward a dev email so route handlers still work
   if (!CF_TEAM_DOMAIN || !CF_ACCESS_AUD) {
     if (process.env.NODE_ENV !== "production") {
