@@ -74,8 +74,7 @@ export function RealEstateSearchForm() {
     setError('');
     setListings([]);
     try {
-      const scraperUrl = process.env.NEXT_PUBLIC_SCRAPER_URL ?? 'http://localhost:3001';
-      const res = await fetch(`${scraperUrl}/scrape`, {
+      const res = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...params, multiSource: true }),

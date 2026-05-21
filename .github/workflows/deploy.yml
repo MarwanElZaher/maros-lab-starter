@@ -39,3 +39,12 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:main
             ${{ env.IMAGE }}:${{ github.sha }}
+
+      - name: Build and push olx-scraper
+        uses: docker/build-push-action@v6
+        with:
+          context: services/olx-scraper
+          push: true
+          tags: |
+            ${{ env.IMAGE }}-olx-scraper:main
+            ${{ env.IMAGE }}-olx-scraper:${{ github.sha }}

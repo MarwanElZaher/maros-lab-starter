@@ -1,8 +1,8 @@
 /**
  * Parses Arabic (and mixed Arabic/English) natural-language real estate queries
- * into structured search parameters using claude-sonnet-4-6.
+ * into structured search parameters via OpenRouter (anthropic/claude-sonnet-4-6).
  */
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 
 export interface SearchParams {
   location: string;
@@ -11,16 +11,10 @@ export interface SearchParams {
   priceMax?: number;
 }
 
-let _client: Anthropic | null = null;
-
-export function getAnthropicClient(): Anthropic {
-  if (!_client) _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return _client;
-}
-
-export function setAnthropicClient(client: Anthropic): void {
-  _client = client;
-}
+const client = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 const SYSTEM_PROMPT = `You parse Arabic and English real estate search queries into structured JSON.
 Return ONLY valid JSON with these keys:
@@ -37,19 +31,16 @@ Examples:
 Interpret Arabic room counts: 1 غرفة≈40-60m², 2 غرف≈60-90m², 3 غرف≈80-130m², 4 غرف≈120-180m².`;
 
 export async function parseArabicQuery(query: string): Promise<SearchParams> {
-  const client = getAnthropicClient();
-
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+  const response = await client.chat.completions.create({
+    model: 'anthropic/claude-sonnet-4-6',
     max_tokens: 256,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: query }],
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: query },
+    ],
   });
 
-  const text = response.content
-    .filter((b) => b.type === 'text')
-    .map((b) => (b as { type: 'text'; text: string }).text)
-    .join('');
+  const text = response.choices[0]?.message?.content ?? '';
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error(`No JSON in response: ${text.slice(0, 200)}`);

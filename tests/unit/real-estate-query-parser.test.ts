@@ -1,35 +1,31 @@
 /**
  * Unit tests for the CopilotKit Arabic NL query parser (MAR-96).
- * Anthropic SDK is fully mocked — no real API calls.
+ * OpenAI SDK is fully mocked — no real API calls.
  */
 
 const mockCreate = jest.fn();
 
-jest.mock('@anthropic-ai/sdk', () => ({
+jest.mock('openai', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
-    messages: { create: mockCreate },
+    chat: { completions: { create: mockCreate } },
   })),
 }));
 
-import { parseArabicQuery, setAnthropicClient } from '../../src/lib/real-estate/query-parser';
-import Anthropic from '@anthropic-ai/sdk';
+import { parseArabicQuery } from '../../src/lib/real-estate/query-parser';
 
-function makeAnthropicResponse(json: object) {
-  return { content: [{ type: 'text', text: JSON.stringify(json) }] };
+function makeOpenAIResponse(json: object) {
+  return { choices: [{ message: { content: JSON.stringify(json) } }] };
 }
 
 describe('parseArabicQuery — CopilotKit NL parser', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mockClient = new (Anthropic as any)();
-    setAnthropicClient(mockClient);
   });
 
   it('parses "شقق في الشماليات 3 غرف" → {location, sizeMin, sizeMax}', async () => {
     mockCreate.mockResolvedValue(
-      makeAnthropicResponse({ location: 'الشماليات', sizeMin: 80, sizeMax: 130, priceMax: null }),
+      makeOpenAIResponse({ location: 'الشماليات', sizeMin: 80, sizeMax: 130, priceMax: null }),
     );
     const result = await parseArabicQuery('شقق في الشماليات 3 غرف');
 
@@ -45,7 +41,7 @@ describe('parseArabicQuery — CopilotKit NL parser', () => {
 
   it('parses "شقة المعادي 80 متر بحد أقصى 2 مليون" → includes priceMax', async () => {
     mockCreate.mockResolvedValue(
-      makeAnthropicResponse({ location: 'المعادي', sizeMin: 70, sizeMax: 90, priceMax: 2000000 }),
+      makeOpenAIResponse({ location: 'المعادي', sizeMin: 70, sizeMax: 90, priceMax: 2000000 }),
     );
     const result = await parseArabicQuery('شقة المعادي 80 متر بحد أقصى 2 مليون');
 
@@ -61,7 +57,7 @@ describe('parseArabicQuery — CopilotKit NL parser', () => {
 
   it('parses "apartments in Zamalek 2 bedrooms" (English query)', async () => {
     mockCreate.mockResolvedValue(
-      makeAnthropicResponse({ location: 'Zamalek', sizeMin: 60, sizeMax: 100, priceMax: null }),
+      makeOpenAIResponse({ location: 'Zamalek', sizeMin: 60, sizeMax: 100, priceMax: null }),
     );
     const result = await parseArabicQuery('apartments in Zamalek 2 bedrooms');
 
@@ -75,18 +71,18 @@ describe('parseArabicQuery — CopilotKit NL parser', () => {
     `);
   });
 
-  it('calls claude-sonnet-4-6 model', async () => {
+  it('calls anthropic/claude-sonnet-4-6 model via OpenRouter', async () => {
     mockCreate.mockResolvedValue(
-      makeAnthropicResponse({ location: 'الشماليات', sizeMin: 80, sizeMax: 130, priceMax: null }),
+      makeOpenAIResponse({ location: 'الشماليات', sizeMin: 80, sizeMax: 130, priceMax: null }),
     );
     await parseArabicQuery('الشماليات');
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'claude-sonnet-4-6' }),
+      expect.objectContaining({ model: 'anthropic/claude-sonnet-4-6' }),
     );
   });
 
   it('throws when AI returns no JSON', async () => {
-    mockCreate.mockResolvedValue({ content: [{ type: 'text', text: 'لا أستطيع تحليل الطلب' }] });
+    mockCreate.mockResolvedValue({ choices: [{ message: { content: 'لا أستطيع تحليل الطلب' } }] });
     await expect(parseArabicQuery('???')).rejects.toThrow('No JSON in response');
   });
 });
