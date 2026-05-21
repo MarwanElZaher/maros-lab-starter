@@ -23,6 +23,7 @@ Each service lives in its own subdirectory under this base.
 | maroslab-rfp-analyzer| `maros-lab-starter/`                        | `docker/docker-compose.rfp-analyzer.yml`          | `docker/.env.rfp-analyzer`                 |
 | maroslab-reminders   | `maros-lab-starter/`                        | `docker/docker-compose.reminders.yml`             | `docker/.env.reminders`                    |
 | maroslab-langfuse    | `maros-lab-starter/`                        | `docker/docker-compose.langfuse.yml`              | `docker/.env.langfuse`                     | image: `langfuse/langfuse:2` (pinned; v3 needs ClickHouse+Redis+S3 — MAR-84) |
+| maroslab-realestate  | `maros-lab-starter/`                        | `docker/docker-compose.realestate.yml`            | `docker/.env.realestate`                   | `OPENROUTER_API_KEY` required (MAR-109) |
 
 **Key rule:** The `maros-lab-starter` stacks are run from the repo clone at  
 `/home/marwanelzaher/ai-company/maros-lab-starter/` — **not** from per-service subdirectories.  
@@ -37,6 +38,7 @@ The env file for each stack lives alongside its compose file inside `docker/`, n
 | `docker/docker-compose.rfp-analyzer.yml`  | `rfp-analyzer`              |
 | `docker/docker-compose.reminders.yml`     | `waha`, `cloudflared-reminders` |
 | `docker/docker-compose.langfuse.yml`      | `langfuse`, `langfuse-db`   |
+| `docker/docker-compose.realestate.yml`    | `realestate-ui`, `olx-scraper` |
 
 ## Network topology
 

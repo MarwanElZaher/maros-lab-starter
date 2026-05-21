@@ -52,7 +52,7 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.copilotkit.rule=Host(`realestate.marwanelzaher.info`) || Host(`rfp.marwanelzaher.info`)"
+      - "traefik.http.routers.copilotkit.rule=Host(`rfp.marwanelzaher.info`)"
       - traefik.http.routers.copilotkit.entrypoints=web,websecure
       - traefik.http.routers.copilotkit.tls=true
       - traefik.http.routers.copilotkit.tls.certresolver=mytlschallenge
