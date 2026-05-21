@@ -2,8 +2,8 @@ FROM mcr.microsoft.com/playwright:v1.48.0-noble AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci --ignore-scripts
+COPY package.json ./
+RUN npm install --ignore-scripts
 
 COPY tsconfig.json ./
 COPY src ./src
@@ -13,8 +13,8 @@ FROM mcr.microsoft.com/playwright:v1.48.0-noble AS runner
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev --ignore-scripts
+COPY package.json ./
+RUN npm install --omit=dev --ignore-scripts
 
 # Install only chromium (skip firefox/webkit to keep image lean)
 RUN npx playwright install chromium --with-deps
