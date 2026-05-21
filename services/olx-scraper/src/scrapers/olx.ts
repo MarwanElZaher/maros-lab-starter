@@ -8,6 +8,14 @@ const SIZE_PATTERN = /(\d[\d,]*)\s*م²?/;
 
 export const SOURCE_DOMAIN = 'www.olx.com.eg';
 
+// data-aut-id selectors (primary), with fallback CSS selectors for OLX redesigns
+const ITEM_SELECTORS = [
+  '[data-aut-id="itemBox"]',
+  'li[data-aut-id]',
+  '._3ToUi li',
+  'ul[data-aut-id="itemsList"] li',
+];
+
 export function buildSearchUrl(params: ScrapeParams): string {
   const url = new URL(`${OLX_BASE}/ar/properties-for-sale/`);
   url.searchParams.set('q', params.location);
@@ -21,40 +29,91 @@ export function buildSearchUrl(params: ScrapeParams): string {
 
 export async function scrapeOlx(params: ScrapeParams): Promise<Listing[]> {
   const searchUrl = buildSearchUrl(params);
-  const browser = await chromium.launch({ headless: true });
+  console.log(`[olx-scraper] GET ${searchUrl}`);
+
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+    ],
+  });
   try {
     const context = await browser.newContext({
       userAgent:
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       locale: 'ar-EG',
+      viewport: { width: 1366, height: 768 },
+      extraHTTPHeaders: {
+        'Accept-Language': 'ar-EG,ar;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+      },
+    });
+
+    // Remove webdriver flag to reduce bot detection
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
 
     const page = await context.newPage();
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 45_000 });
 
+    const finalUrl = page.url();
+    const pageTitle = await page.title();
+    console.log(`[olx-scraper] landed at: ${finalUrl} | title: ${pageTitle}`);
+
+    // Try each selector in priority order; use first that matches
+    let activeSelector = ITEM_SELECTORS[0];
+    for (const sel of ITEM_SELECTORS) {
+      const count = await page.locator(sel).count();
+      console.log(`[olx-scraper] selector "${sel}" → ${count} elements`);
+      if (count > 0) {
+        activeSelector = sel;
+        break;
+      }
+    }
+
+    // Extra wait in case JS is still hydrating
     await page
-      .waitForSelector('[data-aut-id="itemBox"]', { timeout: 15_000 })
+      .waitForSelector(activeSelector, { timeout: 10_000 })
       .catch(() => undefined);
 
+    const matchCount = await page.locator(activeSelector).count();
+    console.log(`[olx-scraper] final listing count with "${activeSelector}": ${matchCount}`);
+
     const rawListings = await page.$$eval(
-      '[data-aut-id="itemBox"]',
+      activeSelector,
       (items, maxItems) =>
         items.slice(0, maxItems).map((item) => {
           const link = item.querySelector('a') as HTMLAnchorElement | null;
-          const titleEl = item.querySelector('[data-aut-id="itemTitle"]');
-          const priceEl = item.querySelector('[data-aut-id="itemPrice"]');
-          const detailsEl = item.querySelector('[data-aut-id="itemDetails"]');
+          const titleEl =
+            item.querySelector('[data-aut-id="itemTitle"]') ??
+            item.querySelector('h2') ??
+            item.querySelector('h3');
+          const priceEl =
+            item.querySelector('[data-aut-id="itemPrice"]') ??
+            item.querySelector('[class*="price"]');
+          const detailsEl =
+            item.querySelector('[data-aut-id="itemDetails"]') ??
+            item.querySelector('[class*="detail"]');
           return {
             post_url: link?.href ?? '',
             description_snippet: titleEl?.textContent?.trim() ?? '',
             price: priceEl?.textContent?.trim() ?? '',
             size: detailsEl?.textContent?.trim() ?? '',
             mobile_number: '',
-            source: SOURCE_DOMAIN,
+            source: 'www.olx.com.eg',
           };
         }),
       MAX_LISTINGS,
     );
+
+    console.log(`[olx-scraper] extracted ${rawListings.length} raw listings`);
 
     const results: Listing[] = [];
     for (const raw of rawListings.slice(0, MAX_PHONE_LOOKUPS)) {
@@ -68,6 +127,8 @@ export async function scrapeOlx(params: ScrapeParams): Promise<Listing[]> {
       const sizeMatch = raw.size.match(SIZE_PATTERN);
       results.push({ ...raw, size: sizeMatch ? `${sizeMatch[1]} م²` : raw.size });
     }
+
+    console.log(`[olx-scraper] returning ${results.length} listings`);
     return results;
   } finally {
     await browser.close();
@@ -77,7 +138,7 @@ export async function scrapeOlx(params: ScrapeParams): Promise<Listing[]> {
 async function extractPhone(context: BrowserContext, url: string): Promise<string> {
   const page = await context.newPage();
   try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 25_000 });
     const showNumBtn = page.locator(
       '[data-aut-id="btnxShowNumber"], [data-aut-id="phone-button"], button:has-text("اظهر رقم"), button:has-text("اعرض رقم"), button:has-text("أظهر رقم")',
     );
