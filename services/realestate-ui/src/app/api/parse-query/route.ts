@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
 
   const completion = await client.chat.completions.create({
     model: 'anthropic/claude-sonnet-4-5',
+    response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
@@ -36,8 +37,12 @@ No markdown, no explanation — just the JSON object.`,
   });
 
   const text = completion.choices[0]?.message?.content ?? '{}';
+  const stripped = text
+    .replace(/^\s*```(?:json)?\s*\n?/i, '')
+    .replace(/\n?\s*```\s*$/i, '')
+    .trim();
   try {
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(stripped);
     return NextResponse.json(parsed);
   } catch {
     return NextResponse.json({ error: 'parse failed', raw: text }, { status: 500 });
