@@ -9,6 +9,9 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package*.json .npmrc ./
+# Workspace package manifests must be present before npm ci resolves the lockfile
+COPY services/rfp-analyzer/package.json ./services/rfp-analyzer/package.json
+COPY services/olx-scraper/package.json ./services/olx-scraper/package.json
 RUN npm ci
 
 # Build the Next.js app
