@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
-import { scrapeOlx } from './scrapers/olx';
+import { scrapeDubizzle } from './scrapers/dubizzle';
 import { scrapeAllSources } from './scraper';
 
 const server = Fastify({ logger: true });
@@ -29,7 +29,7 @@ server.post('/scrape', async (request, reply) => {
       const { listings, sourceResults } = await scrapeAllSources(params);
       return reply.send({ jobId: uuidv4(), listings, sourceResults });
     } else {
-      const listings = await scrapeOlx(params);
+      const listings = await scrapeDubizzle(params);
       return reply.send({ jobId: uuidv4(), listings });
     }
   } catch (err) {
