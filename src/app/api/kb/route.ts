@@ -77,6 +77,8 @@ async function handleGet(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ docs });
 }
 
+const PAST_BIDS_DATASET = "past_bids";
+
 async function handlePost(req: NextRequest, user: RequestUser): Promise<NextResponse> {
   const form = await req.formData();
   const file = form.get("file");
@@ -91,6 +93,31 @@ async function handlePost(req: NextRequest, user: RequestUser): Promise<NextResp
   const dsId = datasetId(dataset);
   if (!dsId) {
     return NextResponse.json({ error: `Dataset ${dataset} not configured` }, { status: 503 });
+  }
+
+  // Server-side validation: all datasets require product, version, date
+  const product = form.get("product");
+  const version = form.get("version");
+  const date = form.get("date");
+  const outcome = form.get("outcome");
+  const customer = form.get("customer");
+
+  if (!product || typeof product !== "string" || !product.trim()) {
+    return NextResponse.json({ error: "product is required" }, { status: 400 });
+  }
+  if (!version || typeof version !== "string" || !version.trim()) {
+    return NextResponse.json({ error: "version is required" }, { status: 400 });
+  }
+  if (!date || typeof date !== "string" || !date.trim()) {
+    return NextResponse.json({ error: "date is required" }, { status: 400 });
+  }
+  if (dataset === PAST_BIDS_DATASET) {
+    if (!outcome || typeof outcome !== "string" || !outcome.trim()) {
+      return NextResponse.json({ error: "outcome is required for past_bids" }, { status: 400 });
+    }
+    if (!customer || typeof customer !== "string" || !customer.trim()) {
+      return NextResponse.json({ error: "customer is required for past_bids" }, { status: 400 });
+    }
   }
 
   const upstream = new FormData();
@@ -110,20 +137,14 @@ async function handlePost(req: NextRequest, user: RequestUser): Promise<NextResp
 
   // Apply metadata to the uploaded document
   if (docId) {
-    const meta: Record<string, string> = {};
-    const product = form.get("product");
-    const version = form.get("version");
-    const date = form.get("date");
-    const outcome = form.get("outcome");
-    const customer = form.get("customer");
-    if (product && typeof product === "string") meta.product = product;
-    if (version && typeof version === "string") meta.version = version;
-    if (date && typeof date === "string") meta.date = date;
-    if (outcome && typeof outcome === "string") meta.outcome = outcome;
-    if (customer && typeof customer === "string") meta.customer = customer;
-    if (Object.keys(meta).length > 0) {
-      await setRagflowDocumentMetadata(dsId, docId, meta).catch(() => {});
-    }
+    const meta: Record<string, string> = {
+      product: product.trim(),
+      version: version.trim(),
+      date: date.trim(),
+    };
+    if (outcome && typeof outcome === "string" && outcome.trim()) meta.outcome = outcome.trim();
+    if (customer && typeof customer === "string" && customer.trim()) meta.customer = customer.trim();
+    await setRagflowDocumentMetadata(dsId, docId, meta).catch(() => {});
   }
 
   await logAuditEvent({ action: "kb.create", userEmail: user.email, metadata: { dataset, docId, fileName: file.name } });

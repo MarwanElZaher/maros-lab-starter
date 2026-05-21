@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { PRODUCT_SLUGS, OUTCOME_VALUES, PRODUCT_REQUIRED_DATASETS, PAST_BIDS_ONLY_DATASETS } from "@/lib/product-catalogue";
+import { PRODUCT_SLUGS, OUTCOME_VALUES, PAST_BIDS_ONLY_DATASETS } from "@/lib/product-catalogue";
 
 type Dataset = "products" | "pricing" | "past_bids" | "licensing" | "user_guides";
 type DocStatus = "parsing" | "ready" | "failed" | "pending";
@@ -61,7 +61,6 @@ export default function KbAdminPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [parsingId, setParsingId] = useState<string | null>(null);
 
-  const productRequired = PRODUCT_REQUIRED_DATASETS.has(dataset);
   const pastBidsMode = PAST_BIDS_ONLY_DATASETS.has(dataset);
 
   const fetchDocs = useCallback(async (ds: Dataset) => {
@@ -96,7 +95,9 @@ export default function KbAdminPage() {
   }, [docs, dataset, fetchDocs]);
 
   function validateMetadata(): string | null {
-    if (productRequired && !product) return "Product is required for this dataset.";
+    if (!product) return "Product is required.";
+    if (!version.trim()) return "Version is required.";
+    if (!docDate) return "Document date is required.";
     if (pastBidsMode && !outcome) return "Outcome is required for Past Bids.";
     if (pastBidsMode && !customer.trim()) return "Customer is required for Past Bids.";
     return null;
@@ -215,10 +216,10 @@ export default function KbAdminPage() {
           <div className="border border-gray-100 rounded-lg p-4 bg-gray-50 space-y-4">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Document Metadata</p>
 
-            {/* Product field — all datasets */}
+            {/* Product field — required for all datasets */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Product{productRequired ? <span className="text-red-500 ml-0.5">*</span> : <span className="text-gray-400 ml-1 text-xs">(optional)</span>}
+                Product<span className="text-red-500 ml-0.5">*</span>
               </label>
               <select
                 value={product}
@@ -232,10 +233,10 @@ export default function KbAdminPage() {
               </select>
             </div>
 
-            {/* Version field — all datasets */}
+            {/* Version field — required for all datasets */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Version <span className="text-gray-400 text-xs">(optional)</span>
+                Version<span className="text-red-500 ml-0.5">*</span>
               </label>
               <input
                 type="text"
@@ -246,10 +247,10 @@ export default function KbAdminPage() {
               />
             </div>
 
-            {/* Date field — all datasets, defaults to today */}
+            {/* Date field — required for all datasets, defaults to today */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Document Date <span className="text-gray-400 text-xs">(optional, defaults to today)</span>
+                Document Date<span className="text-red-500 ml-0.5">*</span>
               </label>
               <input
                 type="date"
@@ -259,39 +260,36 @@ export default function KbAdminPage() {
               />
             </div>
 
-            {/* Past Bids only fields */}
-            {pastBidsMode && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Outcome<span className="text-red-500 ml-0.5">*</span>
-                  </label>
-                  <select
-                    value={outcome}
-                    onChange={(e) => setOutcome(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  >
-                    <option value="">— select outcome —</option>
-                    {OUTCOME_VALUES.map((v) => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+            {/* Outcome field — required for past_bids, optional for others */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Outcome{pastBidsMode ? <span className="text-red-500 ml-0.5">*</span> : <span className="text-gray-400 ml-1 text-xs">(optional)</span>}
+              </label>
+              <select
+                value={outcome}
+                onChange={(e) => setOutcome(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                <option value="">— select outcome —</option>
+                {OUTCOME_VALUES.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Customer<span className="text-red-500 ml-0.5">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={customer}
-                    onChange={(e) => setCustomer(e.target.value)}
-                    placeholder="e.g. Globex Corp"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                </div>
-              </>
-            )}
+            {/* Customer field — required for past_bids, optional for others */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Customer{pastBidsMode ? <span className="text-red-500 ml-0.5">*</span> : <span className="text-gray-400 ml-1 text-xs">(optional)</span>}
+              </label>
+              <input
+                type="text"
+                value={customer}
+                onChange={(e) => setCustomer(e.target.value)}
+                placeholder="e.g. Globex Corp"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
           </div>
 
           {uploadMsg && (
