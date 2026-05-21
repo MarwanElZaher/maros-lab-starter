@@ -25,10 +25,13 @@ const mockPage = {
   locator: jest.fn().mockReturnValue({ count: jest.fn().mockResolvedValue(0) }),
   waitForTimeout: jest.fn().mockResolvedValue(undefined),
   close: jest.fn().mockResolvedValue(undefined),
+  title: jest.fn().mockResolvedValue('OLX Egypt'),
+  url: jest.fn().mockReturnValue('https://www.olx.com.eg/ar/properties-for-sale/'),
 };
 
 const mockContext = {
   newPage: jest.fn().mockResolvedValue(mockPage),
+  addInitScript: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockBrowser = {
@@ -105,7 +108,7 @@ describe('OLX scraper — scrapeOlx', () => {
     const { chromium } = require('playwright') as { chromium: { launch: jest.Mock } };
     await scrapeOlx({ location: 'الشماليات', sizeMin: 80, sizeMax: 150 });
 
-    expect(chromium.launch).toHaveBeenCalledWith({ headless: true });
+    expect(chromium.launch).toHaveBeenCalledWith(expect.objectContaining({ headless: true }));
     expect(mockBrowser.close).toHaveBeenCalled();
   });
 });
