@@ -11,8 +11,11 @@ const config: Config = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
-  // Allow tests to resolve packages that live only in the rfp-analyzer service
-  modulePaths: ["<rootDir>/services/rfp-analyzer/node_modules"],
+  // Allow tests to resolve packages that live only in service subdirectories
+  modulePaths: [
+    "<rootDir>/services/rfp-analyzer/node_modules",
+    "<rootDir>/services/olx-scraper/node_modules",
+  ],
   // jose ships as ESM; allow it to be transformed by next/jest's babel transform
   transformIgnorePatterns: ["/node_modules/(?!(jose)/)"],
 };
