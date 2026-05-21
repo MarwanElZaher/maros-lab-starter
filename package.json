@@ -2,7 +2,9 @@
   "name": "maros-lab-starter",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["services/*"],
+  "workspaces": [
+    "services/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -19,6 +21,7 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.97.1",
     "@axiomhq/logging": "^0.2.0",
     "@axiomhq/nextjs": "^0.2.0",
     "@copilotkit/react-core": "^1.56.2",

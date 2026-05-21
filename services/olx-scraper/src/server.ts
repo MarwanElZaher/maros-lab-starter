@@ -1,7 +1,8 @@
 import Fastify from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
-import { scrapeOlx } from './scraper';
+import { scrapeOlx } from './scrapers/olx';
+import { scrapeAllSources } from './scraper';
 
 const server = Fastify({ logger: true });
 
@@ -10,6 +11,7 @@ const ScrapeBody = z.object({
   sizeMin: z.number().int().positive(),
   sizeMax: z.number().int().positive(),
   priceMax: z.number().int().positive().optional(),
+  multiSource: z.boolean().optional().default(false),
 });
 
 server.get('/health', async () => ({ ok: true }));
@@ -20,9 +22,16 @@ server.post('/scrape', async (request, reply) => {
     return reply.status(400).send({ error: parsed.error.flatten() });
   }
 
+  const { multiSource, ...params } = parsed.data;
+
   try {
-    const listings = await scrapeOlx(parsed.data);
-    return reply.send({ jobId: uuidv4(), listings });
+    if (multiSource) {
+      const { listings, sourceResults } = await scrapeAllSources(params);
+      return reply.send({ jobId: uuidv4(), listings, sourceResults });
+    } else {
+      const listings = await scrapeOlx(params);
+      return reply.send({ jobId: uuidv4(), listings });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     request.log.error({ err }, 'Scrape failed');
